@@ -151,7 +151,7 @@
 
         <Border Grid.Row="2" Background="#E8ECF0">
             <Grid Margin="20,0">
-                <TextBlock Text="Build 1000 | Entwicklungsstand"
+                <TextBlock Text="Build 1010 | Outlook-Bestandsanalyse"
                        VerticalAlignment="Center"
                        Foreground="#555555"
                        FontSize="12"/>
