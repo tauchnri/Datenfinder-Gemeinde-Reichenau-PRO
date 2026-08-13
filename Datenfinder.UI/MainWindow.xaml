@@ -78,7 +78,7 @@
                         Click="SearchButton_Click"/>
             </Grid>
 
-            <!-- Filter direkt unter dem Suchfeld -->
+            <!-- Filter -->
             <Border Grid.Row="2"
                     Background="White"
                     CornerRadius="8"
@@ -99,7 +99,6 @@
                         <ColumnDefinition Width="150"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Von -->
                     <StackPanel Grid.Column="0"
                                 Margin="0,0,10,0">
                         <TextBlock Text="Zeitraum von"
@@ -111,7 +110,6 @@
                                     Height="32"/>
                     </StackPanel>
 
-                    <!-- Bis -->
                     <StackPanel Grid.Column="1"
                                 Margin="0,0,10,0">
                         <TextBlock Text="bis"
@@ -123,7 +121,6 @@
                                     Height="32"/>
                     </StackPanel>
 
-                    <!-- Postfach -->
                     <StackPanel Grid.Column="2"
                                 Margin="0,0,10,0">
                         <TextBlock Text="Postfach"
@@ -135,7 +132,6 @@
                                   Height="32"/>
                     </StackPanel>
 
-                    <!-- Anhang -->
                     <StackPanel Grid.Column="3"
                                 Margin="0,0,10,0">
                         <TextBlock Text="Anhang"
@@ -151,7 +147,6 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <!-- Kennzeichnung -->
                     <StackPanel Grid.Column="4"
                                 Margin="0,0,10,0">
                         <TextBlock Text="Kennzeichnung"
@@ -169,7 +164,6 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <!-- Sortierung -->
                     <StackPanel Grid.Column="5"
                                 Margin="0,0,10,0">
                         <TextBlock Text="Sortierung"
@@ -184,7 +178,6 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <!-- Nur Betreff -->
                     <StackPanel Grid.Column="6"
                                 VerticalAlignment="Bottom"
                                 Margin="3,0,15,6">
@@ -193,7 +186,6 @@
                                   FontSize="13"/>
                     </StackPanel>
 
-                    <!-- Reset -->
                     <Button x:Name="ResetFiltersButton"
                             Grid.Column="8"
                             Content="Filter zurücksetzen"
@@ -203,7 +195,7 @@
                 </Grid>
             </Border>
 
-            <!-- Outlook + Suchindex nebeneinander -->
+            <!-- Outlook und Index -->
             <Grid Grid.Row="4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -243,6 +235,13 @@
                                        Foreground="#777777"
                                        TextWrapping="Wrap"
                                        Margin="0,4,12,0"/>
+
+                            <TextBlock x:Name="MailboxNamesText"
+                                       Text=""
+                                       FontSize="11"
+                                       Foreground="#888888"
+                                       TextWrapping="Wrap"
+                                       Margin="0,5,12,0"/>
                         </StackPanel>
 
                         <Button x:Name="ConnectOutlookButton"
@@ -287,11 +286,24 @@
                                        Foreground="#777777"
                                        TextWrapping="Wrap"
                                        Margin="0,4,12,0"/>
+
+                            <TextBlock x:Name="LastUpdateText"
+                                       Text=""
+                                       FontSize="11"
+                                       Foreground="#888888"
+                                       TextWrapping="Wrap"
+                                       Margin="0,5,12,0"/>
+
+                            <TextBlock Text="Automatische Aktualisierung: alle 60 Minuten, solange der Datenfinder läuft."
+                                       FontSize="11"
+                                       Foreground="#888888"
+                                       TextWrapping="Wrap"
+                                       Margin="0,3,12,0"/>
                         </StackPanel>
 
                         <Button x:Name="CreateIndexButton"
                                 Grid.Column="1"
-                                Content="Index erstellen"
+                                Content="Jetzt aktualisieren"
                                 Height="40"
                                 VerticalAlignment="Center"
                                 FontSize="14"
@@ -301,7 +313,7 @@
                 </Border>
             </Grid>
 
-            <!-- Fortschritt nur während der Indizierung -->
+            <!-- Fortschritt -->
             <Border Grid.Row="6"
                     x:Name="ProgressPanel"
                     Background="White"
@@ -326,7 +338,7 @@
 
                         <TextBlock x:Name="ProgressPercentText"
                                    Grid.Column="1"
-                                   Text="0 %"
+                                   Text=""
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Margin="15,0,0,0"/>
@@ -340,7 +352,7 @@
                                  Margin="0,8,0,0"/>
 
                     <TextBlock x:Name="ProgressCountText"
-                               Text="0 E-Mails verarbeitet"
+                               Text=""
                                FontSize="12"
                                Foreground="#555555"
                                TextWrapping="Wrap"
@@ -355,7 +367,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Ergebnisstatus -->
             <TextBlock x:Name="SearchStatusText"
                        Grid.Row="8"
                        Text=""
@@ -422,7 +433,7 @@
         <Border Grid.Row="2"
                 Background="#E8ECF0">
             <Grid Margin="20,0">
-                <TextBlock Text="Build 1050 | Suchfilter &amp; Outlook-Zusatzdaten"
+                <TextBlock Text="Build 1060 | Intelligenter Outlook-Index"
                            VerticalAlignment="Center"
                            Foreground="#555555"
                            FontSize="12"/>
