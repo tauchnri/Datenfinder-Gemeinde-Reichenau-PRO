@@ -77,6 +77,12 @@ namespace Datenfinder.UI
             MailboxComboBox.Items.Clear();
             MailboxComboBox.Items.Add("Alle Postfächer");
             MailboxComboBox.SelectedIndex = 0;
+
+            SenderFilterTextBox.Text = "";
+            RecipientFilterTextBox.Text = "";
+
+            ActiveFiltersText.Text =
+                "Aktive Filter: keine";
         }
 
         private void CheckExistingIndex()
@@ -964,13 +970,6 @@ namespace Datenfinder.UI
                                     modified.Value <
                                     scanSince)
                                 {
-                                    /*
-                                     * Items wurden nach
-                                     * LastModificationTime
-                                     * absteigend sortiert.
-                                     * Ab hier sollten keine
-                                     * neueren Mails mehr kommen.
-                                     */
                                     break;
                                 }
 
@@ -1025,8 +1024,6 @@ namespace Datenfinder.UI
                             }
                             catch
                             {
-                                // Einzelne Mail darf
-                                // die Aktualisierung nicht stoppen.
                             }
                             finally
                             {
@@ -2060,6 +2057,12 @@ namespace Datenfinder.UI
 
             SubjectOnlyCheckBox.IsChecked = false;
 
+            SenderFilterTextBox.Text = "";
+            RecipientFilterTextBox.Text = "";
+
+            ActiveFiltersText.Text =
+                "Aktive Filter: keine";
+
             SearchTextBox.Focus();
         }
 
@@ -2078,6 +2081,12 @@ namespace Datenfinder.UI
 
             string query =
                 SearchTextBox.Text.Trim();
+
+            string senderFilter =
+                SenderFilterTextBox.Text.Trim();
+
+            string recipientFilter =
+                RecipientFilterTextBox.Text.Trim();
 
             DateTime? fromDate =
                 FromDatePicker.SelectedDate;
@@ -2119,6 +2128,10 @@ namespace Datenfinder.UI
             bool noCriteria =
                 string.IsNullOrWhiteSpace(
                     query) &&
+                string.IsNullOrWhiteSpace(
+                    senderFilter) &&
+                string.IsNullOrWhiteSpace(
+                    recipientFilter) &&
                 !fromDate.HasValue &&
                 !toDate.HasValue &&
                 mailbox ==
@@ -2130,6 +2143,9 @@ namespace Datenfinder.UI
 
             if (noCriteria)
             {
+                ActiveFiltersText.Text =
+                    "Aktive Filter: keine";
+
                 SearchStatusText.Text =
                     "Bitte einen Suchbegriff eingeben oder mindestens einen Filter auswählen.";
 
@@ -2156,9 +2172,15 @@ namespace Datenfinder.UI
                         Mailbox = mailbox,
                         Attachment = attachment,
                         Flag = flag,
+                        SenderFilter = senderFilter,
+                        RecipientFilter = recipientFilter,
                         SubjectOnly = subjectOnly,
                         Sort = sort
                     };
+
+                ActiveFiltersText.Text =
+                    BuildActiveFiltersText(
+                        options);
 
                 SearchResponse response =
                     await Task.Run(
@@ -2205,6 +2227,84 @@ namespace Datenfinder.UI
                 SearchTextBox.IsEnabled = true;
                 SearchTextBox.Focus();
             }
+        }
+
+        private static string BuildActiveFiltersText(
+            SearchOptions options)
+        {
+            List<string> filters =
+                new List<string>();
+
+            if (options.FromDate.HasValue ||
+                options.ToDate.HasValue)
+            {
+                string from =
+                    options.FromDate.HasValue
+                        ? options.FromDate.Value.ToString(
+                            "dd.MM.yyyy")
+                        : "offen";
+
+                string to =
+                    options.ToDate.HasValue
+                        ? options.ToDate.Value.ToString(
+                            "dd.MM.yyyy")
+                        : "offen";
+
+                filters.Add(
+                    $"Zeitraum: {from} bis {to}");
+            }
+
+            if (options.Mailbox !=
+                "Alle Postfächer")
+            {
+                filters.Add(
+                    $"Postfach: {options.Mailbox}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                options.SenderFilter))
+            {
+                filters.Add(
+                    $"Absender: {options.SenderFilter}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                options.RecipientFilter))
+            {
+                filters.Add(
+                    $"Empfänger: {options.RecipientFilter}");
+            }
+
+            if (options.Attachment !=
+                "Alle")
+            {
+                filters.Add(
+                    options.Attachment);
+            }
+
+            if (options.Flag !=
+                "Alle")
+            {
+                filters.Add(
+                    $"Kennzeichnung: {options.Flag}");
+            }
+
+            if (options.SubjectOnly)
+            {
+                filters.Add(
+                    "Nur Betreff");
+            }
+
+            if (filters.Count == 0)
+            {
+                return "Aktive Filter: keine";
+            }
+
+            return
+                "Aktive Filter: " +
+                string.Join(
+                    "  •  ",
+                    filters);
         }
 
         private SearchResponse SearchIndex(
@@ -2276,6 +2376,35 @@ namespace Datenfinder.UI
                 string conversationId = columns[11];
                 string entryId = columns[12];
                 string body = columns[13];
+
+                // NEU BUILD 1080:
+                // Freie Texteingabe für Absender.
+                if (!string.IsNullOrWhiteSpace(
+                        options.SenderFilter) &&
+                    !sender.Contains(
+                        options.SenderFilter,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // NEU BUILD 1080:
+                // Freie Texteingabe für Empfänger.
+                //
+                // Wir prüfen Empfänger UND CC.
+                // Damit wird eine Person auch gefunden,
+                // wenn sie nur in Kopie angeschrieben wurde.
+                if (!string.IsNullOrWhiteSpace(
+                        options.RecipientFilter) &&
+                    !recipient.Contains(
+                        options.RecipientFilter,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !cc.Contains(
+                        options.RecipientFilter,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
                 if (options.Mailbox !=
                     "Alle Postfächer" &&
@@ -2427,6 +2556,10 @@ namespace Datenfinder.UI
                     MaximumSearchResults
             };
         }
+
+        // =========================================================
+        // ORIGINAL-MAIL AUS OUTLOOK ÖFFNEN
+        // =========================================================
 
         private void SearchResultsGrid_MouseDoubleClick(
             object sender,
@@ -2935,6 +3068,7 @@ namespace Datenfinder.UI
         private class SearchOptions
         {
             public string Query { get; set; } = "";
+
             public DateTime? FromDate { get; set; }
             public DateTime? ToDate { get; set; }
 
@@ -2946,6 +3080,10 @@ namespace Datenfinder.UI
 
             public string Flag { get; set; } =
                 "Alle";
+
+            // Neu in Build 1080
+            public string SenderFilter { get; set; } = "";
+            public string RecipientFilter { get; set; } = "";
 
             public string Sort { get; set; } =
                 "Neueste zuerst";
