@@ -1629,7 +1629,7 @@ namespace Datenfinder.UI
                     $"{records.Count:N0} E-Mails erfolgreich indiziert";
 
                 IndexStatusText.Text =
-                    "Outlook-Inhaltsindex Build 1060 erfolgreich erstellt";
+                    "Outlook-Inhaltsindex erfolgreich erstellt";
 
                 IndexStatusText.Foreground =
                     new SolidColorBrush(
@@ -2426,6 +2426,198 @@ namespace Datenfinder.UI
                     totalMatches >
                     MaximumSearchResults
             };
+        }
+
+        private void SearchResultsGrid_MouseDoubleClick(
+            object sender,
+            MouseButtonEventArgs e)
+        {
+            if (SearchResultsGrid.SelectedItem
+                is not SearchResult result)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                result.EntryId))
+            {
+                MessageBox.Show(
+                    "Für diesen Treffer ist keine Outlook-EntryID gespeichert.",
+                    "Original-Mail öffnen",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                return;
+            }
+
+            object? outlookApplication = null;
+            object? outlookNamespace = null;
+            object? stores = null;
+            object? mailItem = null;
+
+            try
+            {
+                Type? outlookType =
+                    Type.GetTypeFromProgID(
+                        "Outlook.Application");
+
+                if (outlookType == null)
+                {
+                    throw new InvalidOperationException(
+                        "Das klassische Microsoft Outlook wurde auf diesem PC nicht gefunden.");
+                }
+
+                outlookApplication =
+                    Activator.CreateInstance(
+                        outlookType);
+
+                if (outlookApplication == null)
+                {
+                    throw new InvalidOperationException(
+                        "Outlook konnte nicht gestartet werden.");
+                }
+
+                dynamic outlook =
+                    outlookApplication;
+
+                outlookNamespace =
+                    outlook.GetNamespace(
+                        "MAPI");
+
+                if (outlookNamespace == null)
+                {
+                    throw new InvalidOperationException(
+                        "Die Outlook-MAPI-Schnittstelle konnte nicht geöffnet werden.");
+                }
+
+                dynamic outlookNs =
+                    outlookNamespace;
+
+                stores =
+                    outlookNs.Stores;
+
+                if (stores != null &&
+                    !string.IsNullOrWhiteSpace(
+                        result.Mailbox))
+                {
+                    dynamic outlookStores =
+                        stores;
+
+                    int storeCount =
+                        outlookStores.Count;
+
+                    for (int i = 1;
+                         i <= storeCount;
+                         i++)
+                    {
+                        object? storeObject = null;
+
+                        try
+                        {
+                            storeObject =
+                                outlookStores.Item(i);
+
+                            dynamic store =
+                                storeObject;
+
+                            string storeName =
+                                SafeDynamicString(
+                                    store,
+                                    "DisplayName");
+
+                            if (!storeName.Equals(
+                                result.Mailbox,
+                                StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            string storeId = "";
+
+                            try
+                            {
+                                storeId =
+                                    store.StoreID ??
+                                    "";
+                            }
+                            catch
+                            {
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(
+                                storeId))
+                            {
+                                try
+                                {
+                                    mailItem =
+                                        outlookNs.GetItemFromID(
+                                            result.EntryId,
+                                            storeId);
+                                }
+                                catch
+                                {
+                                    mailItem = null;
+                                }
+                            }
+
+                            break;
+                        }
+                        finally
+                        {
+                            ReleaseComObject(
+                                storeObject);
+                        }
+                    }
+                }
+
+                if (mailItem == null)
+                {
+                    try
+                    {
+                        mailItem =
+                            outlookNs.GetItemFromID(
+                                result.EntryId);
+                    }
+                    catch
+                    {
+                        mailItem = null;
+                    }
+                }
+
+                if (mailItem == null)
+                {
+                    MessageBox.Show(
+                        "Die Original-Mail konnte in Outlook nicht mehr gefunden werden.\n\n" +
+                        "Möglicherweise wurde sie seit der letzten Index-Aktualisierung verschoben oder gelöscht.\n" +
+                        "Bitte den Suchindex aktualisieren und erneut versuchen.",
+                        "Original-Mail nicht gefunden",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+
+                    return;
+                }
+
+                dynamic mail =
+                    mailItem;
+
+                mail.Display(false);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Die Original-Mail konnte nicht geöffnet werden.\n\n" +
+                    ex.Message,
+                    "Outlook",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                ReleaseComObject(mailItem);
+                ReleaseComObject(stores);
+                ReleaseComObject(outlookNamespace);
+                ReleaseComObject(outlookApplication);
+            }
         }
 
         // =========================================================

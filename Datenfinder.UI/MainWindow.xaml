@@ -391,7 +391,9 @@
                       Background="White"
                       Visibility="Collapsed"
                       HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
+                      VerticalScrollBarVisibility="Auto"
+                      MouseDoubleClick="SearchResultsGrid_MouseDoubleClick"
+                      ToolTip="Doppelklick öffnet die Original-Mail in Outlook">
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Datum"
@@ -433,7 +435,7 @@
         <Border Grid.Row="2"
                 Background="#E8ECF0">
             <Grid Margin="20,0">
-                <TextBlock Text="Build 1060 | Intelligenter Outlook-Index"
+                <TextBlock Text="Build 1070 | Original-Mail direkt öffnen"
                            VerticalAlignment="Center"
                            Foreground="#555555"
                            FontSize="12"/>
