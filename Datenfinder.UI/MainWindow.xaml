@@ -10,22 +10,17 @@
         Background="#F4F6F8">
 
     <Grid>
-
         <Grid.RowDefinitions>
             <RowDefinition Height="72"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="48"/>
         </Grid.RowDefinitions>
 
-        <!-- =====================================================
-             KOPF
-             ===================================================== -->
-
+        <!-- KOPF -->
         <Border Grid.Row="0"
                 Background="#123B63">
 
             <Grid Margin="26,0">
-
                 <StackPanel VerticalAlignment="Center">
 
                     <TextBlock Text="Datenfinder Gemeinde Reichenau PRO"
@@ -39,66 +34,36 @@
                                Margin="1,2,0,0"/>
 
                 </StackPanel>
-
             </Grid>
-
         </Border>
 
-        <!-- =====================================================
-             HAUPTBEREICH
-             ===================================================== -->
-
+        <!-- HAUPTBEREICH -->
         <Grid Grid.Row="1"
               Margin="24,12,24,10">
 
             <Grid.RowDefinitions>
-
-                <!-- System -->
                 <RowDefinition Height="Auto"/>
-
                 <RowDefinition Height="8"/>
-
-                <!-- Filter -->
                 <RowDefinition Height="Auto"/>
-
                 <RowDefinition Height="8"/>
-
-                <!-- Suche -->
                 <RowDefinition Height="Auto"/>
-
                 <RowDefinition Height="7"/>
-
-                <!-- Fortschritt -->
                 <RowDefinition Height="Auto"/>
-
                 <RowDefinition Height="6"/>
-
-                <!-- Ergebnisleiste -->
                 <RowDefinition Height="Auto"/>
-
-                <!-- Ergebnisse -->
                 <RowDefinition Height="*"/>
-
             </Grid.RowDefinitions>
 
-            <!-- =================================================
-                 OUTLOOK + SUCHINDEX
-                 ================================================= -->
-
+            <!-- OUTLOOK + SUCHINDEX -->
             <Grid Grid.Row="0">
 
                 <Grid.ColumnDefinitions>
-
                     <ColumnDefinition Width="*"/>
-
                     <ColumnDefinition Width="12"/>
-
                     <ColumnDefinition Width="*"/>
-
                 </Grid.ColumnDefinitions>
 
                 <!-- Outlook -->
-
                 <Border Grid.Column="0"
                         Background="White"
                         CornerRadius="7"
@@ -107,17 +72,12 @@
                         Padding="12">
 
                     <Grid>
-
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="*"/>
-
                             <ColumnDefinition Width="155"/>
-
                         </Grid.ColumnDefinitions>
 
                         <StackPanel>
-
                             <TextBlock Text="1. Outlook 365"
                                        FontSize="16"
                                        FontWeight="SemiBold"
@@ -143,7 +103,6 @@
                                        Foreground="#888888"
                                        TextWrapping="Wrap"
                                        Margin="0,3,10,0"/>
-
                         </StackPanel>
 
                         <Button x:Name="ConnectOutlookButton"
@@ -153,13 +112,10 @@
                                 VerticalAlignment="Center"
                                 FontSize="13"
                                 Click="ConnectOutlookButton_Click"/>
-
                     </Grid>
-
                 </Border>
 
                 <!-- Suchindex -->
-
                 <Border Grid.Column="2"
                         Background="White"
                         CornerRadius="7"
@@ -168,17 +124,12 @@
                         Padding="12">
 
                     <Grid>
-
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="*"/>
-
-                            <ColumnDefinition Width="155"/>
-
+                            <ColumnDefinition Width="175"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel>
-
                             <TextBlock Text="2. Suchindex"
                                        FontSize="16"
                                        FontWeight="SemiBold"
@@ -203,7 +154,6 @@
                                        FontSize="9"
                                        Foreground="#888888"
                                        Margin="0,3,10,0"/>
-
                         </StackPanel>
 
                         <Button x:Name="CreateIndexButton"
@@ -211,20 +161,14 @@
                                 Content="Jetzt aktualisieren"
                                 Height="34"
                                 VerticalAlignment="Center"
-                                FontSize="13"
+                                FontSize="12"
                                 IsEnabled="False"
                                 Click="CreateIndexButton_Click"/>
-
                     </Grid>
-
                 </Border>
-
             </Grid>
 
-            <!-- =================================================
-                 FILTER
-                 ================================================= -->
-
+            <!-- FILTER -->
             <Border Grid.Row="2"
                     Background="White"
                     CornerRadius="7"
@@ -235,111 +179,73 @@
                 <StackPanel>
 
                     <Grid>
-
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="125"/>
-
                             <ColumnDefinition Width="125"/>
-
                             <ColumnDefinition Width="170"/>
-
                             <ColumnDefinition Width="*"/>
-
                             <ColumnDefinition Width="*"/>
-
                             <ColumnDefinition Width="145"/>
-
                             <ColumnDefinition Width="160"/>
-
                             <ColumnDefinition Width="150"/>
-
                         </Grid.ColumnDefinitions>
-
-                        <!-- Von -->
 
                         <StackPanel Grid.Column="0"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Von"
                                        FontSize="10"
                                        Foreground="#555555"
                                        Margin="1,0,0,2"/>
-
                             <DatePicker x:Name="FromDatePicker"
                                         Height="29"/>
-
                         </StackPanel>
-
-                        <!-- Bis -->
 
                         <StackPanel Grid.Column="1"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Bis"
                                        FontSize="10"
                                        Foreground="#555555"
                                        Margin="1,0,0,2"/>
-
                             <DatePicker x:Name="ToDatePicker"
                                         Height="29"/>
-
                         </StackPanel>
-
-                        <!-- Postfach -->
 
                         <StackPanel Grid.Column="2"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Postfach"
                                        FontSize="10"
                                        Foreground="#555555"
                                        Margin="1,0,0,2"/>
-
                             <ComboBox x:Name="MailboxComboBox"
                                       Height="29"/>
-
                         </StackPanel>
-
-                        <!-- Absender -->
 
                         <StackPanel Grid.Column="3"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Absender enthält"
                                        FontSize="10"
                                        Foreground="#555555"
                                        Margin="1,0,0,2"/>
-
                             <TextBox x:Name="SenderFilterTextBox"
                                      Height="29"
                                      Padding="6,3"
                                      VerticalContentAlignment="Center"/>
-
                         </StackPanel>
-
-                        <!-- Empfänger -->
 
                         <StackPanel Grid.Column="4"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Empfänger enthält"
                                        FontSize="10"
                                        Foreground="#555555"
                                        Margin="1,0,0,2"/>
-
                             <TextBox x:Name="RecipientFilterTextBox"
                                      Height="29"
                                      Padding="6,3"
                                      VerticalContentAlignment="Center"/>
-
                         </StackPanel>
-
-                        <!-- Anhang -->
 
                         <StackPanel Grid.Column="5"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Anhang"
                                        FontSize="10"
                                        Foreground="#555555"
@@ -347,22 +253,14 @@
 
                             <ComboBox x:Name="AttachmentComboBox"
                                       Height="29">
-
                                 <ComboBoxItem Content="Alle"/>
-
                                 <ComboBoxItem Content="Mit Anhang"/>
-
                                 <ComboBoxItem Content="Ohne Anhang"/>
-
                             </ComboBox>
-
                         </StackPanel>
-
-                        <!-- Kennzeichnung -->
 
                         <StackPanel Grid.Column="6"
                                     Margin="0,0,8,0">
-
                             <TextBlock Text="Kennzeichnung"
                                        FontSize="10"
                                        Foreground="#555555"
@@ -370,25 +268,15 @@
 
                             <ComboBox x:Name="FlagComboBox"
                                       Height="29">
-
                                 <ComboBoxItem Content="Alle"/>
-
                                 <ComboBoxItem Content="Gekennzeichnet"/>
-
                                 <ComboBoxItem Content="Nicht gekennzeichnet"/>
-
                                 <ComboBoxItem Content="Erledigt / Häkchen"/>
-
                                 <ComboBoxItem Content="Fähnchen"/>
-
                             </ComboBox>
-
                         </StackPanel>
 
-                        <!-- Sortierung -->
-
                         <StackPanel Grid.Column="7">
-
                             <TextBlock Text="Sortierung"
                                        FontSize="10"
                                        Foreground="#555555"
@@ -396,60 +284,72 @@
 
                             <ComboBox x:Name="SortComboBox"
                                       Height="29">
-
                                 <ComboBoxItem Content="Neueste zuerst"/>
-
                                 <ComboBoxItem Content="Älteste zuerst"/>
-
                             </ComboBox>
-
                         </StackPanel>
-
                     </Grid>
 
-                    <Grid Margin="0,6,0,0">
+                    <!-- Suchumfang -->
+                    <Grid Margin="0,7,0,0">
 
                         <Grid.ColumnDefinitions>
-
-                            <ColumnDefinition Width="140"/>
-
+                            <ColumnDefinition Width="115"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="110"/>
                             <ColumnDefinition Width="*"/>
-
                             <ColumnDefinition Width="150"/>
-
                         </Grid.ColumnDefinitions>
 
-                        <CheckBox x:Name="SubjectOnlyCheckBox"
-                                  Grid.Column="0"
-                                  Content="Nur Betreff"
+                        <TextBlock Grid.Column="0"
+                                   Text="Durchsuchen:"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#123B63"
+                                   VerticalAlignment="Center"/>
+
+                        <CheckBox x:Name="SearchSubjectCheckBox"
+                                  Grid.Column="1"
+                                  Content="Betreff"
+                                  IsChecked="True"
+                                  FontSize="11"
+                                  VerticalAlignment="Center"/>
+
+                        <CheckBox x:Name="SearchBodyCheckBox"
+                                  Grid.Column="2"
+                                  Content="Mailtext"
+                                  IsChecked="True"
+                                  FontSize="11"
+                                  VerticalAlignment="Center"/>
+
+                        <CheckBox x:Name="SearchAttachmentsCheckBox"
+                                  Grid.Column="3"
+                                  Content="Anhänge"
+                                  IsChecked="False"
+                                  FontSize="11"
                                   VerticalAlignment="Center"
-                                  FontSize="11"/>
+                                  ToolTip="PDF, DOCX, XLSX, TXT und CSV"/>
 
                         <TextBlock x:Name="ActiveFiltersText"
-                                   Grid.Column="1"
+                                   Grid.Column="4"
                                    Text="Aktive Filter: keine"
-                                   VerticalAlignment="Center"
                                    FontSize="10"
                                    Foreground="#777777"
+                                   VerticalAlignment="Center"
                                    TextWrapping="Wrap"/>
 
                         <Button x:Name="ResetFiltersButton"
-                                Grid.Column="2"
+                                Grid.Column="5"
                                 Content="Filter zurücksetzen"
                                 Height="27"
                                 FontSize="11"
                                 Click="ResetFiltersButton_Click"/>
-
                     </Grid>
-
                 </StackPanel>
-
             </Border>
 
-            <!-- =================================================
-                 SUCHE
-                 ================================================= -->
-
+            <!-- SUCHE -->
             <Border Grid.Row="4"
                     Background="#EAF3FB"
                     CornerRadius="8"
@@ -458,17 +358,12 @@
                     Padding="9">
 
                 <Grid>
-
                     <Grid.ColumnDefinitions>
-
                         <ColumnDefinition Width="*"/>
-
                         <ColumnDefinition Width="175"/>
-
                     </Grid.ColumnDefinitions>
 
                     <TextBox x:Name="SearchTextBox"
-                             Grid.Column="0"
                              Height="40"
                              FontSize="16"
                              Padding="12,6"
@@ -490,15 +385,10 @@
                             Cursor="Hand"
                             IsEnabled="False"
                             Click="SearchButton_Click"/>
-
                 </Grid>
-
             </Border>
 
-            <!-- =================================================
-                 FORTSCHRITT
-                 ================================================= -->
-
+            <!-- FORTSCHRITT -->
             <Border Grid.Row="6"
                     x:Name="ProgressPanel"
                     Background="#FFFDF2"
@@ -509,15 +399,10 @@
                     Visibility="Collapsed">
 
                 <StackPanel>
-
                     <Grid>
-
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="*"/>
-
                             <ColumnDefinition Width="80"/>
-
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="ProgressPhaseText"
@@ -533,7 +418,6 @@
                                    FontWeight="Bold"
                                    HorizontalAlignment="Right"
                                    Foreground="#123B63"/>
-
                     </Grid>
 
                     <ProgressBar x:Name="IndexProgressBar"
@@ -545,19 +429,13 @@
                                  IsIndeterminate="False"/>
 
                     <Grid Margin="0,4,0,0">
-
                         <Grid.ColumnDefinitions>
-
                             <ColumnDefinition Width="Auto"/>
-
                             <ColumnDefinition Width="12"/>
-
                             <ColumnDefinition Width="*"/>
-
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="ProgressCountText"
-                                   Grid.Column="0"
                                    Text=""
                                    FontSize="10"
                                    Foreground="#555555"/>
@@ -568,26 +446,17 @@
                                    FontSize="10"
                                    Foreground="#777777"
                                    TextTrimming="CharacterEllipsis"/>
-
                     </Grid>
-
                 </StackPanel>
-
             </Border>
 
-            <!-- =================================================
-                 ERGEBNISLEISTE
-                 ================================================= -->
-
+            <!-- ERGEBNISLEISTE -->
             <Grid Grid.Row="8"
                   Margin="0,0,0,5">
 
                 <Grid.ColumnDefinitions>
-
                     <ColumnDefinition Width="*"/>
-
                     <ColumnDefinition Width="190"/>
-
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal"
@@ -604,7 +473,6 @@
                                FontSize="10"
                                Foreground="#888888"
                                VerticalAlignment="Center"/>
-
                 </StackPanel>
 
                 <Button x:Name="OpenSelectedMailButton"
@@ -614,13 +482,9 @@
                         FontSize="11"
                         FontWeight="SemiBold"
                         Click="OpenSelectedMailButton_Click"/>
-
             </Grid>
 
-            <!-- =================================================
-                 SUCHERGEBNISSE
-                 ================================================= -->
-
+            <!-- SUCHERGEBNISSE -->
             <DataGrid x:Name="SearchResultsGrid"
                       Grid.Row="9"
                       AutoGenerateColumns="False"
@@ -638,12 +502,7 @@
                       VerticalScrollBarVisibility="Auto"
                       MouseDoubleClick="SearchResultsGrid_MouseDoubleClick">
 
-                <!-- =================================================
-                     ROLLOVER / TOOLTIP
-                     ================================================= -->
-
                 <DataGrid.RowStyle>
-
                     <Style TargetType="DataGridRow">
 
                         <Setter Property="Cursor"
@@ -656,13 +515,9 @@
                                 Value="10000"/>
 
                         <Setter Property="ToolTip">
-
                             <Setter.Value>
-
                                 <ToolTip Placement="Mouse">
-
                                     <StackPanel Margin="4">
-
                                         <TextBlock Text="Original-Mail öffnen"
                                                    FontWeight="Bold"
                                                    FontSize="13"/>
@@ -670,76 +525,54 @@
                                         <TextBlock Text="Doppelklick auf diesen Treffer öffnet die E-Mail direkt in Outlook."
                                                    Margin="0,4,0,0"
                                                    FontSize="11"/>
-
                                     </StackPanel>
-
                                 </ToolTip>
-
                             </Setter.Value>
-
                         </Setter>
 
                         <Style.Triggers>
-
                             <Trigger Property="IsMouseOver"
                                      Value="True">
-
                                 <Setter Property="Background"
                                         Value="#EAF3FB"/>
-
                             </Trigger>
-
                         </Style.Triggers>
-
                     </Style>
-
                 </DataGrid.RowStyle>
 
-                <!-- =================================================
-                     RECHTSKLICK BLEIBT ZUSÄTZLICH BESTEHEN
-                     ================================================= -->
-
                 <DataGrid.ContextMenu>
-
                     <ContextMenu>
-
                         <MenuItem Header="Original-Mail jetzt in Outlook öffnen"
                                   FontWeight="SemiBold"
                                   Click="OpenOriginalMailMenuItem_Click"/>
-
                     </ContextMenu>
-
                 </DataGrid.ContextMenu>
-
-                <!-- =================================================
-                     SPALTEN
-                     ================================================= -->
 
                 <DataGrid.Columns>
 
                     <DataGridTextColumn Header="Datum"
                                         Binding="{Binding Date}"
-                                        Width="130"/>
+                                        Width="125"/>
 
                     <DataGridTextColumn Header="Postfach"
                                         Binding="{Binding Mailbox}"
-                                        Width="145"/>
+                                        Width="140"/>
 
                     <DataGridTextColumn Header="Empfänger"
                                         Binding="{Binding Recipient}"
-                                        Width="190"/>
+                                        Width="175"/>
 
                     <DataGridTextColumn Header="Absender"
                                         Binding="{Binding Sender}"
-                                        Width="175"/>
+                                        Width="165"/>
 
-                    <DataGridTextColumn Header="Kennzeichnung"
-                                        Binding="{Binding Flag}"
-                                        Width="135"/>
+                    <DataGridTextColumn Header="Gefunden in"
+                                        Binding="{Binding FoundIn}"
+                                        Width="165"/>
 
-                    <DataGridTextColumn Header="Anhang"
-                                        Binding="{Binding Attachment}"
-                                        Width="75"/>
+                    <DataGridTextColumn Header="Anhänge"
+                                        Binding="{Binding AttachmentNames}"
+                                        Width="190"/>
 
                     <DataGridTextColumn Header="Betreff"
                                         Binding="{Binding Subject}"
@@ -747,32 +580,23 @@
 
                     <DataGridTextColumn Header="Ordner"
                                         Binding="{Binding Folder}"
-                                        Width="1.7*"/>
+                                        Width="1.6*"/>
 
                 </DataGrid.Columns>
-
             </DataGrid>
-
         </Grid>
 
-        <!-- =====================================================
-             FUSSZEILE
-             ===================================================== -->
-
+        <!-- FUSSZEILE -->
         <Border Grid.Row="2"
                 Background="#E8ECF0">
 
             <Grid Margin="20,4">
-
                 <Grid.RowDefinitions>
-
                     <RowDefinition Height="Auto"/>
-
                     <RowDefinition Height="Auto"/>
-
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Build 1100 | Datenfinder Gemeinde Reichenau PRO | © 2026"
+                <TextBlock Text="Build 1110 | Datenfinder Gemeinde Reichenau PRO | © 2026"
                            Foreground="#555555"
                            FontSize="10"/>
 
@@ -781,11 +605,7 @@
                            Foreground="#7A7A7A"
                            FontSize="8"
                            Margin="0,2,0,0"/>
-
             </Grid>
-
         </Border>
-
     </Grid>
-
 </Window>

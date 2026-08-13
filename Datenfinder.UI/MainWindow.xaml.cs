@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -11,6 +12,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Xml.Linq;
+using UglyToad.PdfPig;
 
 namespace Datenfinder.UI
 {
@@ -20,15 +23,23 @@ namespace Datenfinder.UI
         private const int MaximumSearchResults = 500;
 
         /*
-         * WICHTIG:
-         * Die Anwendung ist Build 1100.
+         * Build 1111
          *
-         * Das INDEXFORMAT bleibt aber bewusst 1060.
-         * Deshalb muss der vorhandene Index NICHT
-         * vollständig neu aufgebaut werden.
+         * Schema 1110 bleibt bestehen.
+         * Build 1111 korrigiert nur den sicheren Abschluss
+         * der Indexdatei und die Fortschrittsdarstellung.
          */
-        private const string IndexSchema = "1060";
-        private const string PreviousIndexSchema = "1050";
+        private const string IndexSchema = "1110";
+        private const string PreviousIndexSchema = "1060";
+
+        private const long MaximumAttachmentBytes =
+            50L * 1024L * 1024L;
+
+        private const int MaximumCharactersPerAttachment =
+            250000;
+
+        private const int MaximumAttachmentCharactersPerMail =
+            750000;
 
         private readonly string _indexFolder;
         private readonly string _indexPath;
@@ -45,12 +56,6 @@ namespace Datenfinder.UI
         private int _incrementalNewCount;
         private int _incrementalChangedCount;
 
-        /*
-         * Build 1100:
-         * Für einen echten Fortschrittsbalken
-         * zählen wir bei der inkrementellen
-         * Aktualisierung zuerst nur die Ordner.
-         */
         private int _incrementalFolderTotal;
         private int _incrementalFolderProcessed;
 
@@ -58,18 +63,21 @@ namespace Datenfinder.UI
         {
             InitializeComponent();
 
-            _indexFolder = Path.Combine(
-                Environment.GetFolderPath(
-                    Environment.SpecialFolder.MyDocuments),
-                "Datenfinder Gemeinde Reichenau PRO");
+            _indexFolder =
+                Path.Combine(
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.MyDocuments),
+                    "Datenfinder Gemeinde Reichenau PRO");
 
-            _indexPath = Path.Combine(
-                _indexFolder,
-                "Outlook-Inhaltsindex.txt");
+            _indexPath =
+                Path.Combine(
+                    _indexFolder,
+                    "Outlook-Inhaltsindex.txt");
 
-            _syncInfoPath = Path.Combine(
-                _indexFolder,
-                "Outlook-Sync.txt");
+            _syncInfoPath =
+                Path.Combine(
+                    _indexFolder,
+                    "Outlook-Sync.txt");
 
             InitializeFilters();
             CheckExistingIndex();
@@ -77,7 +85,8 @@ namespace Datenfinder.UI
             _automaticUpdateTimer =
                 new DispatcherTimer
                 {
-                    Interval = TimeSpan.FromHours(1)
+                    Interval =
+                        TimeSpan.FromHours(1)
                 };
 
             _automaticUpdateTimer.Tick +=
@@ -97,6 +106,7 @@ namespace Datenfinder.UI
             SortComboBox.SelectedIndex = 0;
 
             MailboxComboBox.Items.Clear();
+
             MailboxComboBox.Items.Add(
                 "Alle Postfächer");
 
@@ -105,14 +115,17 @@ namespace Datenfinder.UI
             SenderFilterTextBox.Text = "";
             RecipientFilterTextBox.Text = "";
 
+            SearchSubjectCheckBox.IsChecked = true;
+            SearchBodyCheckBox.IsChecked = true;
+            SearchAttachmentsCheckBox.IsChecked = false;
+
             ActiveFiltersText.Text =
                 "Aktive Filter: keine";
         }
 
         private void CheckExistingIndex()
         {
-            if (!File.Exists(
-                _indexPath))
+            if (!File.Exists(_indexPath))
             {
                 SearchButton.IsEnabled = false;
 
@@ -130,6 +143,9 @@ namespace Datenfinder.UI
                 return;
             }
 
+            string schema =
+                GetIndexSchema();
+
             if (!IsSearchableIndex())
             {
                 SearchButton.IsEnabled = false;
@@ -145,7 +161,7 @@ namespace Datenfinder.UI
                             0));
 
                 IndexDetailsText.Text =
-                    "Der Index muss einmal vollständig neu erstellt werden.";
+                    "Der Index muss vollständig neu erstellt werden.";
 
                 CreateIndexButton.Content =
                     "Index erstellen";
@@ -155,28 +171,46 @@ namespace Datenfinder.UI
 
             SearchButton.IsEnabled = true;
 
-            CreateIndexButton.Content =
-                "Jetzt aktualisieren";
-
-            IndexStatusText.Text =
-                GetIndexSchema() ==
-                PreviousIndexSchema
-                    ? "Build-1050-Index vorhanden – bereit für intelligente Aktualisierung"
-                    : "Outlook-Inhaltsindex ist bereit";
-
-            IndexStatusText.Foreground =
-                new SolidColorBrush(
-                    Color.FromRgb(
-                        0,
-                        120,
-                        70));
-
             FileInfo fileInfo =
                 new FileInfo(
                     _indexPath);
 
-            IndexDetailsText.Text =
-                $"Indexgröße: {FormatFileSize(fileInfo.Length)}";
+            if (schema == PreviousIndexSchema)
+            {
+                IndexStatusText.Text =
+                    "Vorhandener Index kann durchsucht werden";
+
+                IndexStatusText.Foreground =
+                    new SolidColorBrush(
+                        Color.FromRgb(
+                            180,
+                            100,
+                            0));
+
+                IndexDetailsText.Text =
+                    "Für die neue Anhangsuche muss der Index einmal neu aufgebaut werden.";
+
+                CreateIndexButton.Content =
+                    "Anhangindex neu aufbauen";
+            }
+            else
+            {
+                IndexStatusText.Text =
+                    "Outlook-Inhaltsindex ist bereit";
+
+                IndexStatusText.Foreground =
+                    new SolidColorBrush(
+                        Color.FromRgb(
+                            0,
+                            120,
+                            70));
+
+                IndexDetailsText.Text =
+                    $"Indexgröße: {FormatFileSize(fileInfo.Length)}";
+
+                CreateIndexButton.Content =
+                    "Jetzt aktualisieren";
+            }
 
             SearchStatusText.Text =
                 "Suchbegriff eingeben oder Filter verwenden.";
@@ -227,8 +261,7 @@ namespace Datenfinder.UI
 
         private bool IsSearchableIndex()
         {
-            if (!File.Exists(
-                _indexPath))
+            if (!File.Exists(_indexPath))
             {
                 return false;
             }
@@ -238,8 +271,14 @@ namespace Datenfinder.UI
 
             return
                 schema == IndexSchema ||
-                schema ==
-                PreviousIndexSchema;
+                schema == PreviousIndexSchema;
+        }
+
+        private bool HasAttachmentIndex()
+        {
+            return
+                File.Exists(_indexPath) &&
+                GetIndexSchema() == IndexSchema;
         }
 
         private void LoadMailboxesFromIndex()
@@ -262,12 +301,9 @@ namespace Datenfinder.UI
                     reader.ReadLine()) != null)
                 {
                     string[] columns =
-                        line.Split(
-                            new[] { '\t' },
-                            14,
-                            StringSplitOptions.None);
+                        line.Split('\t');
 
-                    if (columns.Length != 14)
+                    if (columns.Length < 14)
                     {
                         continue;
                     }
@@ -336,7 +372,7 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
-        // SYNC-INFORMATION
+        // SYNC
         // =========================================================
 
         private void UpdateLastSyncDisplay()
@@ -416,7 +452,7 @@ namespace Datenfinder.UI
                 return;
             }
 
-            if (!IsSearchableIndex())
+            if (!HasAttachmentIndex())
             {
                 return;
             }
@@ -519,8 +555,7 @@ namespace Datenfinder.UI
                     try
                     {
                         storeObject =
-                            outlookStores.Item(
-                                i);
+                            outlookStores.Item(i);
 
                         dynamic store =
                             storeObject;
@@ -571,10 +606,56 @@ namespace Datenfinder.UI
                 CreateIndexButton.IsEnabled =
                     true;
 
-                if (IsSearchableIndex())
+                string schema =
+                    GetIndexSchema();
+
+                if (!IsSearchableIndex())
+                {
+                    IndexStatusText.Text =
+                        "Erster Suchindex muss erstellt werden";
+
+                    IndexDetailsText.Text =
+                        "Beim ersten Lauf werden E-Mails und unterstützte Anhänge indiziert.";
+
+                    CreateIndexButton.Content =
+                        "Index erstellen";
+
+                    SearchButton.IsEnabled =
+                        false;
+                }
+                else if (schema ==
+                    PreviousIndexSchema)
+                {
+                    IndexStatusText.Text =
+                        "Bestehender Mailindex erkannt";
+
+                    IndexStatusText.Foreground =
+                        new SolidColorBrush(
+                            Color.FromRgb(
+                                180,
+                                100,
+                                0));
+
+                    IndexDetailsText.Text =
+                        "Betreff und Mailtext sind durchsuchbar. Für Anhänge ist einmalig ein Neuaufbau erforderlich.";
+
+                    CreateIndexButton.Content =
+                        "Anhangindex neu aufbauen";
+
+                    SearchButton.IsEnabled =
+                        true;
+                }
+                else
                 {
                     IndexStatusText.Text =
                         "Index vorhanden – Aktualisierung bereit";
+
+                    IndexStatusText.Foreground =
+                        new SolidColorBrush(
+                            Color.FromRgb(
+                                0,
+                                120,
+                                70));
 
                     IndexDetailsText.Text =
                         "Nur neue oder geänderte Nachrichten werden neu eingelesen.";
@@ -585,27 +666,6 @@ namespace Datenfinder.UI
                     SearchButton.IsEnabled =
                         true;
                 }
-                else
-                {
-                    IndexStatusText.Text =
-                        "Erster Suchindex muss erstellt werden";
-
-                    IndexDetailsText.Text =
-                        "Beim ersten Lauf wird der vollständige Outlook-Bestand indiziert.";
-
-                    CreateIndexButton.Content =
-                        "Index erstellen";
-
-                    SearchButton.IsEnabled =
-                        false;
-                }
-
-                IndexStatusText.Foreground =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            0,
-                            120,
-                            70));
             }
             catch (Exception ex)
             {
@@ -639,7 +699,7 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
-        // INDEX-BUTTON
+        // INDEX BUTTON
         // =========================================================
 
         private async void CreateIndexButton_Click(
@@ -651,7 +711,7 @@ namespace Datenfinder.UI
                 return;
             }
 
-            if (IsSearchableIndex())
+            if (HasAttachmentIndex())
             {
                 await UpdateIndexIncrementallyAsync(
                     true);
@@ -691,18 +751,9 @@ namespace Datenfinder.UI
                 ProgressPanel.Visibility =
                     Visibility.Visible;
 
-                IndexProgressBar.IsIndeterminate =
-                    false;
-
-                IndexProgressBar.Minimum = 0;
-                IndexProgressBar.Maximum = 100;
-                IndexProgressBar.Value = 0;
-
-                ProgressPercentText.Text =
-                    "0 %";
-
-                ProgressPhaseText.Text =
-                    "Aktualisierung wird vorbereitet";
+                SetProgress(
+                    0,
+                    "Aktualisierung wird vorbereitet");
 
                 ProgressCountText.Text =
                     "Vorhandener Index wird geladen ...";
@@ -720,19 +771,12 @@ namespace Datenfinder.UI
                     ?? GetBestInitialSyncPoint();
 
                 DateTime scanSince =
-                    lastSync.AddMinutes(
-                        -10);
+                    lastSync.AddMinutes(-10);
 
                 _incrementalNewCount = 0;
-
-                _incrementalChangedCount =
-                    0;
-
-                _incrementalFolderTotal =
-                    0;
-
-                _incrementalFolderProcessed =
-                    0;
+                _incrementalChangedCount = 0;
+                _incrementalFolderTotal = 0;
+                _incrementalFolderProcessed = 0;
 
                 Type? outlookType =
                     Type.GetTypeFromProgID(
@@ -776,23 +820,12 @@ namespace Datenfinder.UI
                 List<string> storeNames =
                     new List<string>();
 
-                // -------------------------------------------------
-                // PHASE 1
-                // Ordnerzahl ermitteln
-                // -------------------------------------------------
-
-                ProgressPhaseText.Text =
-                    "Phase 1 von 3 – Outlook-Ordner werden vorbereitet";
-
                 for (int storeIndex = 1;
                      storeIndex <= storeCount;
                      storeIndex++)
                 {
-                    object? storeObject =
-                        null;
-
-                    object? rootFolderObject =
-                        null;
+                    object? storeObject = null;
+                    object? rootFolderObject = null;
 
                     try
                     {
@@ -822,9 +855,6 @@ namespace Datenfinder.UI
                                 storeName);
                         }
 
-                        ProgressFolderText.Text =
-                            $"Postfach {storeIndex} von {storeCount}: {storeName}";
-
                         rootFolderObject =
                             store.GetRootFolder();
 
@@ -835,16 +865,13 @@ namespace Datenfinder.UI
                                     rootFolderObject);
                         }
 
-                        double preparePercent =
-                            storeCount > 0
-                                ? ((double)storeIndex /
-                                   storeCount) *
-                                  10.0
-                                : 0;
-
                         SetProgress(
-                            preparePercent,
-                            $"Ordner werden vorbereitet – Postfach {storeIndex} von {storeCount}");
+                            ((double)storeIndex /
+                             Math.Max(
+                                 1,
+                                 storeCount)) *
+                            10.0,
+                            $"Phase 1 von 3 – Postfach {storeIndex} von {storeCount} wird vorbereitet");
 
                         await RefreshUi();
                     }
@@ -858,30 +885,17 @@ namespace Datenfinder.UI
                     }
                 }
 
-                if (_incrementalFolderTotal <=
-                    0)
+                if (_incrementalFolderTotal <= 0)
                 {
-                    _incrementalFolderTotal =
-                        1;
+                    _incrementalFolderTotal = 1;
                 }
-
-                // -------------------------------------------------
-                // PHASE 2
-                // Eigentliche Aktualisierung
-                // -------------------------------------------------
-
-                ProgressPhaseText.Text =
-                    "Phase 2 von 3 – Neue und geänderte E-Mails werden geprüft";
 
                 for (int storeIndex = 1;
                      storeIndex <= storeCount;
                      storeIndex++)
                 {
-                    object? storeObject =
-                        null;
-
-                    object? rootFolderObject =
-                        null;
+                    object? storeObject = null;
+                    object? rootFolderObject = null;
 
                     try
                     {
@@ -907,8 +921,7 @@ namespace Datenfinder.UI
                         rootFolderObject =
                             store.GetRootFolder();
 
-                        if (rootFolderObject !=
-                            null)
+                        if (rootFolderObject != null)
                         {
                             await UpdateFolderIncrementallyAsync(
                                 rootFolderObject,
@@ -928,17 +941,9 @@ namespace Datenfinder.UI
                     }
                 }
 
-                // -------------------------------------------------
-                // PHASE 3
-                // Speichern
-                // -------------------------------------------------
-
-                ProgressPhaseText.Text =
-                    "Phase 3 von 3 – Index wird gespeichert";
-
                 SetProgress(
                     95,
-                    "Indexdatei wird gespeichert");
+                    "Phase 3 von 3 – Index wird gespeichert");
 
                 ProgressCountText.Text =
                     $"{_incrementalNewCount:N0} neu | " +
@@ -977,7 +982,7 @@ namespace Datenfinder.UI
                     $"Index enthält jetzt {records.Count:N0} E-Mails.";
 
                 IndexStatusText.Text =
-                    "Outlook-Inhaltsindex ist aktuell";
+                    "Outlook-Inhaltsindex einschließlich Anhänge ist aktuell";
 
                 IndexStatusText.Foreground =
                     new SolidColorBrush(
@@ -988,8 +993,7 @@ namespace Datenfinder.UI
 
                 IndexDetailsText.Text =
                     $"{storeCount} Postfächer | " +
-                    $"{records.Count:N0} E-Mails | " +
-                    $"vorher {oldCount:N0}";
+                    $"{records.Count:N0} E-Mails | vorher {oldCount:N0}";
 
                 SearchButton.IsEnabled =
                     true;
@@ -998,17 +1002,14 @@ namespace Datenfinder.UI
                     "Jetzt aktualisieren";
 
                 LoadMailboxesFromIndex();
-
                 UpdateLastSyncDisplay();
 
                 if (userRequested)
                 {
                     SearchStatusText.Text =
-                        _incrementalNewCount ==
-                            0 &&
-                        _incrementalChangedCount ==
-                            0
-                            ? "Index ist bereits aktuell. Keine neuen oder geänderten E-Mails gefunden."
+                        _incrementalNewCount == 0 &&
+                        _incrementalChangedCount == 0
+                            ? "Index ist bereits aktuell."
                             : $"Index aktualisiert: {_incrementalNewCount:N0} neu, " +
                               $"{_incrementalChangedCount:N0} geändert.";
                 }
@@ -1021,14 +1022,9 @@ namespace Datenfinder.UI
             }
             catch (Exception ex)
             {
-                IndexProgressBar.IsIndeterminate =
-                    false;
-
-                ProgressPhaseText.Text =
-                    "Aktualisierung abgebrochen";
-
-                ProgressFolderText.Text =
-                    ex.Message;
+                SetFailedProgress(
+                    "Aktualisierung abgebrochen",
+                    ex.Message);
 
                 IndexStatusText.Text =
                     "Index-Aktualisierung fehlgeschlagen";
@@ -1048,14 +1044,9 @@ namespace Datenfinder.UI
             }
             finally
             {
-                ReleaseComObject(
-                    stores);
-
-                ReleaseComObject(
-                    outlookNamespace);
-
-                ReleaseComObject(
-                    outlookApplication);
+                ReleaseComObject(stores);
+                ReleaseComObject(outlookNamespace);
+                ReleaseComObject(outlookApplication);
 
                 CreateIndexButton.IsEnabled =
                     true;
@@ -1068,18 +1059,12 @@ namespace Datenfinder.UI
             }
         }
 
-        // =========================================================
-        // NUR ORDNER ZÄHLEN
-        // =========================================================
-
         private int CountFoldersOnly(
             object folderObject)
         {
-            object? foldersObject =
-                null;
+            object? foldersObject = null;
 
-            int result =
-                1;
+            int result = 1;
 
             try
             {
@@ -1089,8 +1074,7 @@ namespace Datenfinder.UI
                 foldersObject =
                     folder.Folders;
 
-                if (foldersObject ==
-                    null)
+                if (foldersObject == null)
                 {
                     return result;
                 }
@@ -1111,11 +1095,9 @@ namespace Datenfinder.UI
                     try
                     {
                         subFolderObject =
-                            folders.Item(
-                                i);
+                            folders.Item(i);
 
-                        if (subFolderObject !=
-                            null)
+                        if (subFolderObject != null)
                         {
                             result +=
                                 CountFoldersOnly(
@@ -1156,9 +1138,8 @@ namespace Datenfinder.UI
             }
             catch
             {
-                return DateTime.Now
-                    .AddDays(
-                        -1);
+                return
+                    DateTime.Now.AddDays(-1);
             }
         }
 
@@ -1169,11 +1150,8 @@ namespace Datenfinder.UI
             DateTime scanSince,
             Dictionary<string, IndexRecord> records)
         {
-            object? itemsObject =
-                null;
-
-            object? foldersObject =
-                null;
+            object? itemsObject = null;
+            object? foldersObject = null;
 
             try
             {
@@ -1204,18 +1182,15 @@ namespace Datenfinder.UI
 
                 double folderProgress =
                     10.0 +
-                    (
-                        (double)
-                        _incrementalFolderProcessed /
-                        Math.Max(
-                            1,
-                            _incrementalFolderTotal)
-                    ) *
+                    ((double)_incrementalFolderProcessed /
+                     Math.Max(
+                         1,
+                         _incrementalFolderTotal)) *
                     80.0;
 
                 SetProgress(
                     folderProgress,
-                    $"Ordner {_incrementalFolderProcessed:N0} von {_incrementalFolderTotal:N0}");
+                    $"Phase 2 von 3 – Ordner {_incrementalFolderProcessed:N0} von {_incrementalFolderTotal:N0}");
 
                 ProgressFolderText.Text =
                     $"{storeName} > {currentPath}";
@@ -1231,8 +1206,7 @@ namespace Datenfinder.UI
                     itemsObject =
                         folder.Items;
 
-                    if (itemsObject !=
-                        null)
+                    if (itemsObject != null)
                     {
                         dynamic items =
                             itemsObject;
@@ -1260,11 +1234,9 @@ namespace Datenfinder.UI
                             try
                             {
                                 itemObject =
-                                    items.Item(
-                                        i);
+                                    items.Item(i);
 
-                                if (itemObject ==
-                                    null)
+                                if (itemObject == null)
                                 {
                                     continue;
                                 }
@@ -1315,8 +1287,7 @@ namespace Datenfinder.UI
 
                                 if (records.TryGetValue(
                                     record.EntryId,
-                                    out IndexRecord?
-                                        existing))
+                                    out IndexRecord? existing))
                                 {
                                     if (!existing.ContentEquals(
                                         record))
@@ -1355,8 +1326,7 @@ namespace Datenfinder.UI
                 foldersObject =
                     folder.Folders;
 
-                if (foldersObject !=
-                    null)
+                if (foldersObject != null)
                 {
                     dynamic folders =
                         foldersObject;
@@ -1374,11 +1344,9 @@ namespace Datenfinder.UI
                         try
                         {
                             subFolderObject =
-                                folders.Item(
-                                    i);
+                                folders.Item(i);
 
-                            if (subFolderObject !=
-                                null)
+                            if (subFolderObject != null)
                             {
                                 await UpdateFolderIncrementallyAsync(
                                     subFolderObject,
@@ -1410,360 +1378,16 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
-        // INDEX LADEN
-        // =========================================================
-
-        private Dictionary<string, IndexRecord>
-            LoadExistingIndexRecords()
-        {
-            Dictionary<string, IndexRecord> records =
-                new Dictionary<string, IndexRecord>(
-                    StringComparer.OrdinalIgnoreCase);
-
-            if (!File.Exists(
-                _indexPath))
-            {
-                return records;
-            }
-
-            using StreamReader reader =
-                new StreamReader(
-                    _indexPath,
-                    Encoding.UTF8,
-                    true);
-
-            string? line;
-
-            int legacyCounter =
-                0;
-
-            while ((line =
-                reader.ReadLine()) != null)
-            {
-                string[] columns =
-                    line.Split(
-                        new[] { '\t' },
-                        14,
-                        StringSplitOptions.None);
-
-                if (columns.Length !=
-                    14)
-                {
-                    continue;
-                }
-
-                if (!int.TryParse(
-                    columns[0],
-                    out _))
-                {
-                    continue;
-                }
-
-                IndexRecord record =
-                    new IndexRecord
-                    {
-                        Date =
-                            columns[1],
-
-                        Sender =
-                            columns[2],
-
-                        Recipient =
-                            columns[3],
-
-                        Cc =
-                            columns[4],
-
-                        Mailbox =
-                            columns[5],
-
-                        Subject =
-                            columns[6],
-
-                        Folder =
-                            columns[7],
-
-                        Flag =
-                            columns[8],
-
-                        Attachment =
-                            columns[9],
-
-                        Categories =
-                            columns[10],
-
-                        ConversationId =
-                            columns[11],
-
-                        EntryId =
-                            columns[12],
-
-                        Body =
-                            columns[13]
-                    };
-
-                string key =
-                    record.EntryId;
-
-                if (string.IsNullOrWhiteSpace(
-                    key))
-                {
-                    legacyCounter++;
-
-                    key =
-                        "__LEGACY__" +
-                        legacyCounter;
-                }
-
-                records[
-                    key] =
-                    record;
-            }
-
-            return records;
-        }
-
-        // =========================================================
-        // INDEX SPEICHERN
-        // =========================================================
-
-        private async Task WriteIndexRecordsAsync(
-            IEnumerable<IndexRecord> records,
-            int storeCount,
-            DateTime syncTime)
-        {
-            Directory.CreateDirectory(
-                _indexFolder);
-
-            string temporaryPath =
-                _indexPath +
-                ".tmp";
-
-            List<IndexRecord> orderedRecords =
-                records
-                    .OrderByDescending(
-                        x =>
-                            ParseIndexDate(
-                                x.Date)
-                            ??
-                            DateTime.MinValue)
-                    .ToList();
-
-            using (
-                StreamWriter writer =
-                    new StreamWriter(
-                        temporaryPath,
-                        false,
-                        new UTF8Encoding(
-                            true)))
-            {
-                await writer.WriteLineAsync(
-                    "Datenfinder Gemeinde Reichenau PRO");
-
-                await writer.WriteLineAsync(
-                    "Outlook-Inhaltsindex");
-
-                await writer.WriteLineAsync(
-                    $"Schema: {IndexSchema}");
-
-                await writer.WriteLineAsync(
-                    $"Letzte Aktualisierung: {syncTime:dd.MM.yyyy HH:mm:ss}");
-
-                await writer.WriteLineAsync(
-                    $"Postfächer: {storeCount}");
-
-                await writer.WriteLineAsync(
-                    $"E-Mails: {orderedRecords.Count}");
-
-                await writer.WriteLineAsync();
-
-                await writer.WriteLineAsync(
-                    "Nr.\t" +
-                    "Datum\t" +
-                    "Absender\t" +
-                    "Empfänger\t" +
-                    "CC\t" +
-                    "Postfach\t" +
-                    "Betreff\t" +
-                    "Ordner\t" +
-                    "Kennzeichnung\t" +
-                    "Anhang\t" +
-                    "Kategorien\t" +
-                    "ConversationID\t" +
-                    "EntryID\t" +
-                    "E-Mail-Text");
-
-                int number =
-                    0;
-
-                foreach (
-                    IndexRecord record
-                    in orderedRecords)
-                {
-                    number++;
-
-                    await writer.WriteLineAsync(
-                        SerializeIndexRecord(
-                            number,
-                            record));
-                }
-
-                await writer.FlushAsync();
-            }
-
-            File.Copy(
-                temporaryPath,
-                _indexPath,
-                true);
-
-            File.Delete(
-                temporaryPath);
-        }
-
-        private static string SerializeIndexRecord(
-            int number,
-            IndexRecord record)
-        {
-            return
-                $"{number}\t" +
-                $"{CleanIndexText(record.Date)}\t" +
-                $"{CleanIndexText(record.Sender)}\t" +
-                $"{CleanIndexText(record.Recipient)}\t" +
-                $"{CleanIndexText(record.Cc)}\t" +
-                $"{CleanIndexText(record.Mailbox)}\t" +
-                $"{CleanIndexText(record.Subject)}\t" +
-                $"{CleanIndexText(record.Folder)}\t" +
-                $"{CleanIndexText(record.Flag)}\t" +
-                $"{CleanIndexText(record.Attachment)}\t" +
-                $"{CleanIndexText(record.Categories)}\t" +
-                $"{CleanIndexText(record.ConversationId)}\t" +
-                $"{CleanIndexText(record.EntryId)}\t" +
-                $"{CleanIndexText(record.Body)}";
-        }
-
-        private static IndexRecord BuildIndexRecord(
-            dynamic item,
-            string storeName,
-            string currentPath)
-        {
-            return new IndexRecord
-            {
-                Date =
-                    SafeDynamicDateTime(
-                        item),
-
-                Sender =
-                    SafeDynamicString(
-                        item,
-                        "SenderName"),
-
-                Recipient =
-                    SafeDynamicString(
-                        item,
-                        "To"),
-
-                Cc =
-                    SafeDynamicString(
-                        item,
-                        "CC"),
-
-                Mailbox =
-                    storeName,
-
-                Subject =
-                    SafeDynamicString(
-                        item,
-                        "Subject"),
-
-                Folder =
-                    currentPath,
-
-                Flag =
-                    GetFlagDescription(
-                        item),
-
-                Attachment =
-                    HasAttachments(
-                        item)
-                        ? "1"
-                        : "0",
-
-                Categories =
-                    SafeDynamicString(
-                        item,
-                        "Categories"),
-
-                ConversationId =
-                    SafeDynamicString(
-                        item,
-                        "ConversationID"),
-
-                EntryId =
-                    SafeDynamicString(
-                        item,
-                        "EntryID"),
-
-                Body =
-                    SafeDynamicString(
-                        item,
-                        "Body")
-            };
-        }
-
-        private static DateTime?
-            SafeLastModificationTime(
-                dynamic item)
-        {
-            try
-            {
-                DateTime value =
-                    item.LastModificationTime;
-
-                return value;
-            }
-            catch
-            {
-                try
-                {
-                    DateTime value =
-                        item.ReceivedTime;
-
-                    return value;
-                }
-                catch
-                {
-                    try
-                    {
-                        DateTime value =
-                            item.SentOn;
-
-                        return value;
-                    }
-                    catch
-                    {
-                        return null;
-                    }
-                }
-            }
-        }
-
-        // =========================================================
-        // ERSTER VOLLSTÄNDIGER INDEX
+        // VOLLINDEX
         // =========================================================
 
         private async Task CreateFullIndexAsync()
         {
-            object? outlookApplication =
-                null;
+            object? outlookApplication = null;
+            object? outlookNamespace = null;
+            object? stores = null;
 
-            object? outlookNamespace =
-                null;
-
-            object? stores =
-                null;
-
-            _updateInProgress =
-                true;
+            _updateInProgress = true;
 
             try
             {
@@ -1779,45 +1403,28 @@ namespace Datenfinder.UI
                 SearchResultsGrid.Visibility =
                     Visibility.Collapsed;
 
-                _totalFolderCount =
-                    0;
-
-                _totalMailCount =
-                    0;
-
-                _processedMailCount =
-                    0;
+                _totalFolderCount = 0;
+                _totalMailCount = 0;
+                _processedMailCount = 0;
 
                 ProgressPanel.Visibility =
                     Visibility.Visible;
 
-                IndexProgressBar.IsIndeterminate =
-                    false;
-
-                IndexProgressBar.Minimum =
-                    0;
-
-                IndexProgressBar.Maximum =
-                    100;
-
-                IndexProgressBar.Value =
-                    0;
-
-                ProgressPercentText.Text =
-                    "0 %";
-
-                ProgressPhaseText.Text =
-                    "Phase 1 von 2 – Outlook-Bestand wird gezählt";
+                SetProgress(
+                    0,
+                    "Phase 1 von 2 – Outlook-Bestand wird gezählt");
 
                 ProgressCountText.Text =
                     "0 E-Mails gefunden";
+
+                ProgressFolderText.Text =
+                    "";
 
                 Type? outlookType =
                     Type.GetTypeFromProgID(
                         "Outlook.Application");
 
-                if (outlookType ==
-                    null)
+                if (outlookType == null)
                 {
                     throw new InvalidOperationException(
                         "Das klassische Microsoft Outlook wurde nicht gefunden.");
@@ -1848,11 +1455,6 @@ namespace Datenfinder.UI
 
                 List<string> storeNames =
                     new List<string>();
-
-                // ---------------------------------------------
-                // PHASE 1
-                // 0 - 15 %
-                // ---------------------------------------------
 
                 for (int storeIndex = 1;
                      storeIndex <= storeCount;
@@ -1894,23 +1496,19 @@ namespace Datenfinder.UI
                         rootFolderObject =
                             store.GetRootFolder();
 
-                        if (rootFolderObject !=
-                            null)
+                        if (rootFolderObject != null)
                         {
                             await CountFolderAsync(
                                 rootFolderObject,
                                 storeName);
                         }
 
-                        double phaseOnePercent =
-                            storeCount > 0
-                                ? ((double)storeIndex /
-                                   storeCount) *
-                                  15.0
-                                : 0;
-
                         SetProgress(
-                            phaseOnePercent,
+                            ((double)storeIndex /
+                             Math.Max(
+                                 1,
+                                 storeCount)) *
+                            15.0,
                             $"Phase 1 von 2 – Bestand wird gezählt ({storeIndex}/{storeCount} Postfächer)");
                     }
                     finally
@@ -1923,8 +1521,7 @@ namespace Datenfinder.UI
                     }
                 }
 
-                if (_totalMailCount <=
-                    0)
+                if (_totalMailCount <= 0)
                 {
                     throw new InvalidOperationException(
                         "Es wurden keine Outlook-E-Mails gefunden.");
@@ -1934,20 +1531,12 @@ namespace Datenfinder.UI
                     new Dictionary<string, IndexRecord>(
                         StringComparer.OrdinalIgnoreCase);
 
-                // ---------------------------------------------
-                // PHASE 2
-                // 15 - 95 %
-                // ---------------------------------------------
-
-                ProgressPhaseText.Text =
-                    "Phase 2 von 2 – E-Mails werden indiziert";
+                SetProgress(
+                    15,
+                    "Phase 2 von 2 – E-Mails und Anhänge werden indiziert");
 
                 ProgressCountText.Text =
                     $"0 von {_totalMailCount:N0} E-Mails verarbeitet";
-
-                SetProgress(
-                    15,
-                    "Phase 2 von 2 – E-Mails werden indiziert");
 
                 for (int storeIndex = 1;
                      storeIndex <= storeCount;
@@ -1983,8 +1572,7 @@ namespace Datenfinder.UI
                         rootFolderObject =
                             store.GetRootFolder();
 
-                        if (rootFolderObject !=
-                            null)
+                        if (rootFolderObject != null)
                         {
                             await BuildFullFolderIndexAsync(
                                 rootFolderObject,
@@ -2003,9 +1591,21 @@ namespace Datenfinder.UI
                     }
                 }
 
+                /*
+                 * Die eigentliche Outlook-Indexierung ist beendet.
+                 * Jetzt wird nur noch die neue lokale Datei geschrieben.
+                 */
                 SetProgress(
                     96,
-                    "Indexdatei wird gespeichert");
+                    "Indexdatei wird sicher gespeichert");
+
+                ProgressCountText.Text =
+                    $"{records.Count:N0} E-Mails wurden verarbeitet";
+
+                ProgressFolderText.Text =
+                    "Lokaler Suchindex wird abgeschlossen ...";
+
+                await RefreshUi();
 
                 DateTime syncTime =
                     DateTime.Now;
@@ -2026,13 +1626,16 @@ namespace Datenfinder.UI
 
                 SetProgress(
                     100,
-                    "Fertig – Suchindex wurde erfolgreich erstellt");
+                    "Fertig – E-Mails und Anhänge wurden vollständig indiziert");
 
                 ProgressCountText.Text =
                     $"{records.Count:N0} E-Mails erfolgreich indiziert";
 
+                ProgressFolderText.Text =
+                    "Der neue Suchindex wurde erfolgreich gespeichert.";
+
                 IndexStatusText.Text =
-                    "Outlook-Inhaltsindex erfolgreich erstellt";
+                    "Outlook-Inhaltsindex einschließlich Anhänge erfolgreich erstellt";
 
                 IndexStatusText.Foreground =
                     new SolidColorBrush(
@@ -2053,28 +1656,22 @@ namespace Datenfinder.UI
                     "Jetzt aktualisieren";
 
                 LoadMailboxesFromIndex();
-
                 UpdateLastSyncDisplay();
 
                 SearchStatusText.Text =
-                    "Index bereit. Suche und Filter können verwendet werden.";
+                    "Index bereit. Betreff, Mailtext und Anhänge können durchsucht werden.";
 
                 await Task.Delay(
-                    1200);
+                    1500);
 
                 ProgressPanel.Visibility =
                     Visibility.Collapsed;
             }
             catch (Exception ex)
             {
-                IndexProgressBar.IsIndeterminate =
-                    false;
-
-                ProgressPhaseText.Text =
-                    "Indizierung abgebrochen";
-
-                ProgressFolderText.Text =
-                    ex.Message;
+                SetFailedProgress(
+                    "Indizierung abgebrochen",
+                    ex.Message);
 
                 IndexStatusText.Text =
                     "Outlook-Indizierung fehlgeschlagen";
@@ -2088,6 +1685,9 @@ namespace Datenfinder.UI
 
                 IndexDetailsText.Text =
                     ex.Message;
+
+                SearchButton.IsEnabled =
+                    IsSearchableIndex();
             }
             finally
             {
@@ -2111,19 +1711,12 @@ namespace Datenfinder.UI
             }
         }
 
-        // =========================================================
-        // BESTAND ZÄHLEN
-        // =========================================================
-
         private async Task CountFolderAsync(
             object folderObject,
             string storeName)
         {
-            object? itemsObject =
-                null;
-
-            object? foldersObject =
-                null;
+            object? itemsObject = null;
+            object? foldersObject = null;
 
             try
             {
@@ -2152,8 +1745,7 @@ namespace Datenfinder.UI
                     itemsObject =
                         folder.Items;
 
-                    if (itemsObject !=
-                        null)
+                    if (itemsObject != null)
                     {
                         dynamic items =
                             itemsObject;
@@ -2171,8 +1763,7 @@ namespace Datenfinder.UI
                             try
                             {
                                 itemObject =
-                                    items.Item(
-                                        i);
+                                    items.Item(i);
 
                                 if (itemObject ==
                                     null)
@@ -2192,8 +1783,7 @@ namespace Datenfinder.UI
                                     _totalMailCount++;
 
                                     if (_totalMailCount %
-                                        250 ==
-                                        0)
+                                        250 == 0)
                                     {
                                         ProgressCountText.Text =
                                             $"{_totalMailCount:N0} E-Mails gefunden";
@@ -2220,8 +1810,7 @@ namespace Datenfinder.UI
                 foldersObject =
                     folder.Folders;
 
-                if (foldersObject !=
-                    null)
+                if (foldersObject != null)
                 {
                     dynamic folders =
                         foldersObject;
@@ -2239,11 +1828,9 @@ namespace Datenfinder.UI
                         try
                         {
                             subFolderObject =
-                                folders.Item(
-                                    i);
+                                folders.Item(i);
 
-                            if (subFolderObject !=
-                                null)
+                            if (subFolderObject != null)
                             {
                                 await CountFolderAsync(
                                     subFolderObject,
@@ -2271,21 +1858,14 @@ namespace Datenfinder.UI
             }
         }
 
-        // =========================================================
-        // VOLLINDEX AUFBAUEN
-        // =========================================================
-
         private async Task BuildFullFolderIndexAsync(
             object folderObject,
             string storeName,
             string parentPath,
             Dictionary<string, IndexRecord> records)
         {
-            object? itemsObject =
-                null;
-
-            object? foldersObject =
-                null;
+            object? itemsObject = null;
+            object? foldersObject = null;
 
             try
             {
@@ -2338,8 +1918,7 @@ namespace Datenfinder.UI
                         try
                         {
                             itemObject =
-                                items.Item(
-                                    i);
+                                items.Item(i);
 
                             if (itemObject ==
                                 null)
@@ -2376,14 +1955,16 @@ namespace Datenfinder.UI
                             _processedMailCount++;
 
                             if (_processedMailCount %
-                                20 ==
-                                0)
+                                10 == 0)
                             {
+                                int displayedProcessed =
+                                    Math.Min(
+                                        _processedMailCount,
+                                        _totalMailCount);
+
                                 double mailRatio =
-                                    _totalMailCount >
-                                    0
-                                        ? (double)
-                                          _processedMailCount /
+                                    _totalMailCount > 0
+                                        ? (double)displayedProcessed /
                                           _totalMailCount
                                         : 0;
 
@@ -2394,10 +1975,10 @@ namespace Datenfinder.UI
 
                                 SetProgress(
                                     percent,
-                                    $"Phase 2 von 2 – {_processedMailCount:N0} von {_totalMailCount:N0} E-Mails");
+                                    $"Phase 2 von 2 – {displayedProcessed:N0} von {_totalMailCount:N0} E-Mails");
 
                                 ProgressCountText.Text =
-                                    $"{_processedMailCount:N0} von {_totalMailCount:N0} E-Mails verarbeitet";
+                                    $"{displayedProcessed:N0} von {_totalMailCount:N0} E-Mails verarbeitet";
 
                                 await RefreshUi();
                             }
@@ -2419,8 +2000,7 @@ namespace Datenfinder.UI
                 foldersObject =
                     folder.Folders;
 
-                if (foldersObject !=
-                    null)
+                if (foldersObject != null)
                 {
                     dynamic folders =
                         foldersObject;
@@ -2438,11 +2018,9 @@ namespace Datenfinder.UI
                         try
                         {
                             subFolderObject =
-                                folders.Item(
-                                    i);
+                                folders.Item(i);
 
-                            if (subFolderObject !=
-                                null)
+                            if (subFolderObject != null)
                             {
                                 await BuildFullFolderIndexAsync(
                                     subFolderObject,
@@ -2473,6 +2051,927 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
+        // INDEX LADEN / SPEICHERN
+        // =========================================================
+
+        private Dictionary<string, IndexRecord>
+            LoadExistingIndexRecords()
+        {
+            Dictionary<string, IndexRecord> records =
+                new Dictionary<string, IndexRecord>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (!File.Exists(_indexPath))
+            {
+                return records;
+            }
+
+            using StreamReader reader =
+                new StreamReader(
+                    _indexPath,
+                    Encoding.UTF8,
+                    true);
+
+            string? line;
+            int legacyCounter = 0;
+
+            while ((line =
+                reader.ReadLine()) != null)
+            {
+                string[] columns =
+                    line.Split('\t');
+
+                if (columns.Length < 14)
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(
+                    columns[0],
+                    out _))
+                {
+                    continue;
+                }
+
+                IndexRecord record =
+                    new IndexRecord
+                    {
+                        Date = columns[1],
+                        Sender = columns[2],
+                        Recipient = columns[3],
+                        Cc = columns[4],
+                        Mailbox = columns[5],
+                        Subject = columns[6],
+                        Folder = columns[7],
+                        Flag = columns[8],
+                        Attachment = columns[9],
+                        Categories = columns[10],
+                        ConversationId = columns[11],
+                        EntryId = columns[12],
+                        Body = columns[13],
+
+                        AttachmentNames =
+                            columns.Length >= 15
+                                ? columns[14]
+                                : "",
+
+                        AttachmentText =
+                            columns.Length >= 16
+                                ? columns[15]
+                                : ""
+                    };
+
+                string key =
+                    record.EntryId;
+
+                if (string.IsNullOrWhiteSpace(
+                    key))
+                {
+                    legacyCounter++;
+
+                    key =
+                        "__LEGACY__" +
+                        legacyCounter;
+                }
+
+                records[key] =
+                    record;
+            }
+
+            return records;
+        }
+
+        /*
+         * Build 1111:
+         *
+         * Die temporäre Datei wird vollständig geschrieben,
+         * geflusht und vor dem anschließenden Move garantiert
+         * geschlossen.
+         *
+         * Erst DANACH wird sie zur echten Indexdatei.
+         */
+        private async Task WriteIndexRecordsAsync(
+            IEnumerable<IndexRecord> records,
+            int storeCount,
+            DateTime syncTime)
+        {
+            Directory.CreateDirectory(
+                _indexFolder);
+
+            string temporaryPath =
+                _indexPath +
+                ".tmp";
+
+            List<IndexRecord> orderedRecords =
+                records
+                    .OrderByDescending(
+                        x =>
+                            ParseIndexDate(
+                                x.Date)
+                            ??
+                            DateTime.MinValue)
+                    .ToList();
+
+            /*
+             * Eventuell von einem früher abgebrochenen Lauf
+             * übriggebliebene TMP-Datei entfernen.
+             */
+            try
+            {
+                if (File.Exists(
+                    temporaryPath))
+                {
+                    File.Delete(
+                        temporaryPath);
+                }
+            }
+            catch
+            {
+                /*
+                 * Falls eine alte TMP-Datei wirklich noch von
+                 * einem Fremdprozess blockiert wird, erzeugen wir
+                 * einen eindeutigen temporären Dateinamen.
+                 */
+                temporaryPath =
+                    _indexPath +
+                    "." +
+                    Guid.NewGuid()
+                        .ToString("N") +
+                    ".tmp";
+            }
+
+            /*
+             * WICHTIG:
+             * Eigener Scope für StreamWriter.
+             * Nach der schließenden Klammer ist der Writer
+             * garantiert disposed und die Datei nicht mehr gesperrt.
+             */
+            await using (
+                FileStream stream =
+                    new FileStream(
+                        temporaryPath,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        65536,
+                        true))
+            {
+                await using (
+                    StreamWriter writer =
+                        new StreamWriter(
+                            stream,
+                            new UTF8Encoding(true)))
+                {
+                    await writer.WriteLineAsync(
+                        "Datenfinder Gemeinde Reichenau PRO");
+
+                    await writer.WriteLineAsync(
+                        "Outlook-Inhaltsindex");
+
+                    await writer.WriteLineAsync(
+                        $"Schema: {IndexSchema}");
+
+                    await writer.WriteLineAsync(
+                        $"Letzte Aktualisierung: {syncTime:dd.MM.yyyy HH:mm:ss}");
+
+                    await writer.WriteLineAsync(
+                        $"Postfächer: {storeCount}");
+
+                    await writer.WriteLineAsync(
+                        $"E-Mails: {orderedRecords.Count}");
+
+                    await writer.WriteLineAsync();
+
+                    await writer.WriteLineAsync(
+                        "Nr.\t" +
+                        "Datum\t" +
+                        "Absender\t" +
+                        "Empfänger\t" +
+                        "CC\t" +
+                        "Postfach\t" +
+                        "Betreff\t" +
+                        "Ordner\t" +
+                        "Kennzeichnung\t" +
+                        "Anhang\t" +
+                        "Kategorien\t" +
+                        "ConversationID\t" +
+                        "EntryID\t" +
+                        "E-Mail-Text\t" +
+                        "Anhang-Namen\t" +
+                        "Anhang-Texte");
+
+                    int number = 0;
+
+                    foreach (
+                        IndexRecord record
+                        in orderedRecords)
+                    {
+                        number++;
+
+                        await writer.WriteLineAsync(
+                            SerializeIndexRecord(
+                                number,
+                                record));
+                    }
+
+                    await writer.FlushAsync();
+                }
+            }
+
+            /*
+             * HIER ist die temporäre Datei garantiert geschlossen.
+             *
+             * Move mit overwrite=true ist auf demselben Laufwerk
+             * außerdem sauberer als Copy + Delete.
+             */
+            File.Move(
+                temporaryPath,
+                _indexPath,
+                true);
+        }
+
+        private static string SerializeIndexRecord(
+            int number,
+            IndexRecord record)
+        {
+            return
+                $"{number}\t" +
+                $"{CleanIndexText(record.Date)}\t" +
+                $"{CleanIndexText(record.Sender)}\t" +
+                $"{CleanIndexText(record.Recipient)}\t" +
+                $"{CleanIndexText(record.Cc)}\t" +
+                $"{CleanIndexText(record.Mailbox)}\t" +
+                $"{CleanIndexText(record.Subject)}\t" +
+                $"{CleanIndexText(record.Folder)}\t" +
+                $"{CleanIndexText(record.Flag)}\t" +
+                $"{CleanIndexText(record.Attachment)}\t" +
+                $"{CleanIndexText(record.Categories)}\t" +
+                $"{CleanIndexText(record.ConversationId)}\t" +
+                $"{CleanIndexText(record.EntryId)}\t" +
+                $"{CleanIndexText(record.Body)}\t" +
+                $"{CleanIndexText(record.AttachmentNames)}\t" +
+                $"{CleanIndexText(record.AttachmentText)}";
+        }
+
+        // =========================================================
+        // E-MAIL + ANHÄNGE EINLESEN
+        // =========================================================
+
+        private static IndexRecord BuildIndexRecord(
+            dynamic item,
+            string storeName,
+            string currentPath)
+        {
+            AttachmentIndexData attachmentData =
+                ExtractAttachmentData(
+                    item);
+
+            return new IndexRecord
+            {
+                Date =
+                    SafeDynamicDateTime(
+                        item),
+
+                Sender =
+                    SafeDynamicString(
+                        item,
+                        "SenderName"),
+
+                Recipient =
+                    SafeDynamicString(
+                        item,
+                        "To"),
+
+                Cc =
+                    SafeDynamicString(
+                        item,
+                        "CC"),
+
+                Mailbox =
+                    storeName,
+
+                Subject =
+                    SafeDynamicString(
+                        item,
+                        "Subject"),
+
+                Folder =
+                    currentPath,
+
+                Flag =
+                    GetFlagDescription(
+                        item),
+
+                Attachment =
+                    attachmentData.HasAttachments
+                        ? "1"
+                        : "0",
+
+                Categories =
+                    SafeDynamicString(
+                        item,
+                        "Categories"),
+
+                ConversationId =
+                    SafeDynamicString(
+                        item,
+                        "ConversationID"),
+
+                EntryId =
+                    SafeDynamicString(
+                        item,
+                        "EntryID"),
+
+                Body =
+                    SafeDynamicString(
+                        item,
+                        "Body"),
+
+                AttachmentNames =
+                    attachmentData.Names,
+
+                AttachmentText =
+                    attachmentData.SearchText
+            };
+        }
+
+        private static AttachmentIndexData
+            ExtractAttachmentData(
+                dynamic item)
+        {
+            object? attachmentsObject = null;
+
+            List<string> names =
+                new List<string>();
+
+            StringBuilder text =
+                new StringBuilder();
+
+            int totalCharacters = 0;
+
+            try
+            {
+                attachmentsObject =
+                    item.Attachments;
+
+                if (attachmentsObject == null)
+                {
+                    return new AttachmentIndexData();
+                }
+
+                dynamic attachments =
+                    attachmentsObject;
+
+                int count =
+                    attachments.Count;
+
+                for (int i = 1;
+                     i <= count;
+                     i++)
+                {
+                    object? attachmentObject =
+                        null;
+
+                    string? temporaryPath =
+                        null;
+
+                    try
+                    {
+                        attachmentObject =
+                            attachments.Item(i);
+
+                        dynamic attachment =
+                            attachmentObject;
+
+                        string fileName =
+                            "";
+
+                        try
+                        {
+                            fileName =
+                                attachment.FileName ??
+                                "";
+                        }
+                        catch
+                        {
+                        }
+
+                        if (string.IsNullOrWhiteSpace(
+                            fileName))
+                        {
+                            fileName =
+                                $"Anhang {i}";
+                        }
+
+                        names.Add(
+                            fileName);
+
+                        string extension =
+                            Path.GetExtension(
+                                fileName)
+                            .ToLowerInvariant();
+
+                        if (!IsSupportedAttachment(
+                            extension))
+                        {
+                            continue;
+                        }
+
+                        long size = 0;
+
+                        try
+                        {
+                            size =
+                                Convert.ToInt64(
+                                    attachment.Size);
+                        }
+                        catch
+                        {
+                        }
+
+                        if (size >
+                            MaximumAttachmentBytes)
+                        {
+                            continue;
+                        }
+
+                        string tempFolder =
+                            Path.Combine(
+                                Path.GetTempPath(),
+                                "DatenfinderGemeindeReichenau");
+
+                        Directory.CreateDirectory(
+                            tempFolder);
+
+                        temporaryPath =
+                            Path.Combine(
+                                tempFolder,
+                                Guid.NewGuid()
+                                    .ToString("N") +
+                                extension);
+
+                        attachment.SaveAsFile(
+                            temporaryPath);
+
+                        string extracted =
+                            ExtractTextFromAttachment(
+                                temporaryPath,
+                                extension);
+
+                        if (string.IsNullOrWhiteSpace(
+                            extracted))
+                        {
+                            continue;
+                        }
+
+                        extracted =
+                            NormalizeExtractedText(
+                                extracted);
+
+                        if (extracted.Length >
+                            MaximumCharactersPerAttachment)
+                        {
+                            extracted =
+                                extracted.Substring(
+                                    0,
+                                    MaximumCharactersPerAttachment);
+                        }
+
+                        int remaining =
+                            MaximumAttachmentCharactersPerMail -
+                            totalCharacters;
+
+                        if (remaining <= 0)
+                        {
+                            break;
+                        }
+
+                        if (extracted.Length >
+                            remaining)
+                        {
+                            extracted =
+                                extracted.Substring(
+                                    0,
+                                    remaining);
+                        }
+
+                        string markerName =
+                            fileName
+                                .Replace(
+                                    "]]]",
+                                    "")
+                                .Replace(
+                                    "[[[",
+                                    "");
+
+                        text.Append(
+                            "[[[ATTACHMENT:");
+
+                        text.Append(
+                            markerName);
+
+                        text.Append(
+                            "]]] ");
+
+                        text.Append(
+                            extracted);
+
+                        text.Append(
+                            " [[[/ATTACHMENT]]] ");
+
+                        totalCharacters +=
+                            extracted.Length;
+                    }
+                    catch
+                    {
+                        /*
+                         * Einzelne defekte, kennwortgeschützte
+                         * oder nicht lesbare Anhänge überspringen.
+                         */
+                    }
+                    finally
+                    {
+                        if (!string.IsNullOrWhiteSpace(
+                            temporaryPath))
+                        {
+                            try
+                            {
+                                if (File.Exists(
+                                    temporaryPath))
+                                {
+                                    File.Delete(
+                                        temporaryPath);
+                                }
+                            }
+                            catch
+                            {
+                            }
+                        }
+
+                        ReleaseComObject(
+                            attachmentObject);
+                    }
+                }
+
+                return new AttachmentIndexData
+                {
+                    HasAttachments =
+                        count > 0,
+
+                    Names =
+                        string.Join(
+                            " | ",
+                            names),
+
+                    SearchText =
+                        text.ToString()
+                };
+            }
+            catch
+            {
+                return new AttachmentIndexData
+                {
+                    HasAttachments =
+                        names.Count > 0,
+
+                    Names =
+                        string.Join(
+                            " | ",
+                            names),
+
+                    SearchText =
+                        text.ToString()
+                };
+            }
+            finally
+            {
+                ReleaseComObject(
+                    attachmentsObject);
+            }
+        }
+
+        private static bool IsSupportedAttachment(
+            string extension)
+        {
+            return
+                extension == ".pdf" ||
+                extension == ".docx" ||
+                extension == ".xlsx" ||
+                extension == ".txt" ||
+                extension == ".csv";
+        }
+
+        private static string ExtractTextFromAttachment(
+            string filePath,
+            string extension)
+        {
+            try
+            {
+                return extension switch
+                {
+                    ".pdf" =>
+                        ExtractPdfText(
+                            filePath),
+
+                    ".docx" =>
+                        ExtractDocxText(
+                            filePath),
+
+                    ".xlsx" =>
+                        ExtractXlsxText(
+                            filePath),
+
+                    ".txt" =>
+                        File.ReadAllText(
+                            filePath),
+
+                    ".csv" =>
+                        File.ReadAllText(
+                            filePath),
+
+                    _ =>
+                        ""
+                };
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static string ExtractPdfText(
+            string filePath)
+        {
+            StringBuilder result =
+                new StringBuilder();
+
+            using PdfDocument document =
+                PdfDocument.Open(
+                    filePath);
+
+            foreach (var page
+                in document.GetPages())
+            {
+                if (!string.IsNullOrWhiteSpace(
+                    page.Text))
+                {
+                    result.AppendLine(
+                        page.Text);
+                }
+            }
+
+            return result.ToString();
+        }
+
+        private static string ExtractDocxText(
+            string filePath)
+        {
+            using ZipArchive archive =
+                ZipFile.OpenRead(
+                    filePath);
+
+            ZipArchiveEntry? documentEntry =
+                archive.GetEntry(
+                    "word/document.xml");
+
+            if (documentEntry == null)
+            {
+                return "";
+            }
+
+            using Stream stream =
+                documentEntry.Open();
+
+            XDocument document =
+                XDocument.Load(
+                    stream);
+
+            IEnumerable<string> textNodes =
+                document
+                    .Descendants()
+                    .Where(
+                        element =>
+                            element.Name.LocalName ==
+                            "t")
+                    .Select(
+                        element =>
+                            element.Value);
+
+            return string.Join(
+                " ",
+                textNodes);
+        }
+
+        private static string ExtractXlsxText(
+            string filePath)
+        {
+            using ZipArchive archive =
+                ZipFile.OpenRead(
+                    filePath);
+
+            List<string> sharedStrings =
+                new List<string>();
+
+            ZipArchiveEntry? sharedEntry =
+                archive.GetEntry(
+                    "xl/sharedStrings.xml");
+
+            if (sharedEntry != null)
+            {
+                using Stream sharedStream =
+                    sharedEntry.Open();
+
+                XDocument sharedDocument =
+                    XDocument.Load(
+                        sharedStream);
+
+                foreach (XElement item
+                    in sharedDocument
+                        .Descendants()
+                        .Where(
+                            element =>
+                                element.Name.LocalName ==
+                                "si"))
+                {
+                    string text =
+                        string.Join(
+                            "",
+                            item
+                                .Descendants()
+                                .Where(
+                                    element =>
+                                        element.Name.LocalName ==
+                                        "t")
+                                .Select(
+                                    element =>
+                                        element.Value));
+
+                    sharedStrings.Add(
+                        text);
+                }
+            }
+
+            StringBuilder result =
+                new StringBuilder();
+
+            IEnumerable<ZipArchiveEntry> worksheets =
+                archive.Entries
+                    .Where(
+                        entry =>
+                            entry.FullName.StartsWith(
+                                "xl/worksheets/sheet",
+                                StringComparison.OrdinalIgnoreCase) &&
+                            entry.FullName.EndsWith(
+                                ".xml",
+                                StringComparison.OrdinalIgnoreCase));
+
+            foreach (
+                ZipArchiveEntry worksheet
+                in worksheets)
+            {
+                using Stream worksheetStream =
+                    worksheet.Open();
+
+                XDocument sheetDocument =
+                    XDocument.Load(
+                        worksheetStream);
+
+                foreach (XElement cell
+                    in sheetDocument
+                        .Descendants()
+                        .Where(
+                            element =>
+                                element.Name.LocalName ==
+                                "c"))
+                {
+                    string type =
+                        cell.Attribute("t")
+                            ?.Value
+                        ??
+                        "";
+
+                    XElement? valueElement =
+                        cell.Elements()
+                            .FirstOrDefault(
+                                element =>
+                                    element.Name.LocalName ==
+                                    "v");
+
+                    if (type ==
+                        "inlineStr")
+                    {
+                        string inlineText =
+                            string.Join(
+                                "",
+                                cell
+                                    .Descendants()
+                                    .Where(
+                                        element =>
+                                            element.Name.LocalName ==
+                                            "t")
+                                    .Select(
+                                        element =>
+                                            element.Value));
+
+                        if (!string.IsNullOrWhiteSpace(
+                            inlineText))
+                        {
+                            result.Append(
+                                inlineText);
+
+                            result.Append(' ');
+                        }
+
+                        continue;
+                    }
+
+                    if (valueElement == null)
+                    {
+                        continue;
+                    }
+
+                    string rawValue =
+                        valueElement.Value;
+
+                    if (type == "s" &&
+                        int.TryParse(
+                            rawValue,
+                            out int sharedIndex) &&
+                        sharedIndex >= 0 &&
+                        sharedIndex <
+                        sharedStrings.Count)
+                    {
+                        result.Append(
+                            sharedStrings[
+                                sharedIndex]);
+                    }
+                    else
+                    {
+                        result.Append(
+                            rawValue);
+                    }
+
+                    result.Append(' ');
+                }
+            }
+
+            return result.ToString();
+        }
+
+        private static string NormalizeExtractedText(
+            string text)
+        {
+            if (string.IsNullOrWhiteSpace(
+                text))
+            {
+                return "";
+            }
+
+            return text
+                .Replace(
+                    "\r",
+                    " ")
+                .Replace(
+                    "\n",
+                    " ")
+                .Replace(
+                    "\t",
+                    " ")
+                .Trim();
+        }
+
+        private static DateTime?
+            SafeLastModificationTime(
+                dynamic item)
+        {
+            try
+            {
+                return
+                    item.LastModificationTime;
+            }
+            catch
+            {
+                try
+                {
+                    return
+                        item.ReceivedTime;
+                }
+                catch
+                {
+                    try
+                    {
+                        return
+                            item.SentOn;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        // =========================================================
         // FORTSCHRITT
         // =========================================================
 
@@ -2498,6 +2997,30 @@ namespace Datenfinder.UI
 
             ProgressPhaseText.Text =
                 phaseText;
+        }
+
+        private void SetFailedProgress(
+            string phaseText,
+            string errorText)
+        {
+            IndexProgressBar.IsIndeterminate =
+                false;
+
+            IndexProgressBar.Minimum = 0;
+            IndexProgressBar.Maximum = 100;
+            IndexProgressBar.Value = 0;
+
+            ProgressPercentText.Text =
+                "0 %";
+
+            ProgressPhaseText.Text =
+                phaseText;
+
+            ProgressCountText.Text =
+                "Vorgang wurde nicht abgeschlossen.";
+
+            ProgressFolderText.Text =
+                errorText;
         }
 
         // =========================================================
@@ -2545,14 +3068,20 @@ namespace Datenfinder.UI
             SortComboBox.SelectedIndex =
                 0;
 
-            SubjectOnlyCheckBox.IsChecked =
-                false;
-
             SenderFilterTextBox.Text =
                 "";
 
             RecipientFilterTextBox.Text =
                 "";
+
+            SearchSubjectCheckBox.IsChecked =
+                true;
+
+            SearchBodyCheckBox.IsChecked =
+                true;
+
+            SearchAttachmentsCheckBox.IsChecked =
+                false;
 
             ActiveFiltersText.Text =
                 "Aktive Filter: keine";
@@ -2599,6 +3128,39 @@ namespace Datenfinder.UI
                 return;
             }
 
+            bool searchSubject =
+                SearchSubjectCheckBox.IsChecked ==
+                true;
+
+            bool searchBody =
+                SearchBodyCheckBox.IsChecked ==
+                true;
+
+            bool searchAttachments =
+                SearchAttachmentsCheckBox.IsChecked ==
+                true;
+
+            if (!string.IsNullOrWhiteSpace(
+                    query) &&
+                !searchSubject &&
+                !searchBody &&
+                !searchAttachments)
+            {
+                SearchStatusText.Text =
+                    "Bitte mindestens einen Suchbereich auswählen: Betreff, Mailtext oder Anhänge.";
+
+                return;
+            }
+
+            if (searchAttachments &&
+                !HasAttachmentIndex())
+            {
+                SearchStatusText.Text =
+                    "Die Anhangsuche benötigt den neuen Index. Bitte zuerst „Anhangindex neu aufbauen“ ausführen.";
+
+                return;
+            }
+
             string mailbox =
                 MailboxComboBox
                     .SelectedItem
@@ -2617,11 +3179,6 @@ namespace Datenfinder.UI
             string sort =
                 GetComboBoxText(
                     SortComboBox);
-
-            bool subjectOnly =
-                SubjectOnlyCheckBox
-                    .IsChecked ==
-                true;
 
             bool noCriteria =
                 string.IsNullOrWhiteSpace(
@@ -2691,8 +3248,14 @@ namespace Datenfinder.UI
                         RecipientFilter =
                             recipientFilter,
 
-                        SubjectOnly =
-                            subjectOnly,
+                        SearchSubject =
+                            searchSubject,
+
+                        SearchBody =
+                            searchBody,
+
+                        SearchAttachments =
+                            searchAttachments,
 
                         Sort =
                             sort
@@ -2816,20 +3379,38 @@ namespace Datenfinder.UI
                     $"Kennzeichnung: {options.Flag}");
             }
 
-            if (options.SubjectOnly)
+            List<string> areas =
+                new List<string>();
+
+            if (options.SearchSubject)
             {
-                filters.Add(
-                    "Nur Betreff");
+                areas.Add(
+                    "Betreff");
             }
 
+            if (options.SearchBody)
+            {
+                areas.Add(
+                    "Mailtext");
+            }
+
+            if (options.SearchAttachments)
+            {
+                areas.Add(
+                    "Anhänge");
+            }
+
+            filters.Add(
+                "Suche in: " +
+                string.Join(
+                    ", ",
+                    areas));
+
             return
-                filters.Count ==
-                0
-                    ? "Aktive Filter: keine"
-                    : "Aktive Filter: " +
-                      string.Join(
-                          "  •  ",
-                          filters);
+                "Aktive Filter: " +
+                string.Join(
+                    "  •  ",
+                    filters);
         }
 
         private SearchResponse SearchIndex(
@@ -2858,13 +3439,9 @@ namespace Datenfinder.UI
                 reader.ReadLine()) != null)
             {
                 string[] columns =
-                    line.Split(
-                        new[] { '\t' },
-                        14,
-                        StringSplitOptions.None);
+                    line.Split('\t');
 
-                if (columns.Length !=
-                        14 ||
+                if (columns.Length < 14 ||
                     !int.TryParse(
                         columns[0],
                         out _))
@@ -2928,7 +3505,16 @@ namespace Datenfinder.UI
                 string body =
                     columns[13];
 
-                // Absenderfilter
+                string attachmentNames =
+                    columns.Length >= 15
+                        ? columns[14]
+                        : "";
+
+                string attachmentText =
+                    columns.Length >= 16
+                        ? columns[15]
+                        : "";
+
                 if (!string.IsNullOrWhiteSpace(
                         options.SenderFilter) &&
                     !sender.Contains(
@@ -2938,7 +3524,6 @@ namespace Datenfinder.UI
                     continue;
                 }
 
-                // Empfänger inklusive CC
                 if (!string.IsNullOrWhiteSpace(
                         options.RecipientFilter) &&
                     !recipient.Contains(
@@ -2961,8 +3546,7 @@ namespace Datenfinder.UI
                 }
 
                 bool hasAttachment =
-                    attachment ==
-                    "1";
+                    attachment == "1";
 
                 if (options.Attachment ==
                         "Mit Anhang" &&
@@ -3015,49 +3599,117 @@ namespace Datenfinder.UI
                     continue;
                 }
 
-                if (searchWords.Length >
-                    0)
+                string foundIn =
+                    "Filter";
+
+                if (searchWords.Length > 0)
                 {
-                    string searchableText =
-                        options.SubjectOnly
-                            ? subject
-                            : sender +
-                              " " +
-                              recipient +
-                              " " +
-                              cc +
-                              " " +
-                              mailbox +
-                              " " +
-                              subject +
-                              " " +
-                              folder +
-                              " " +
-                              flag +
-                              " " +
-                              categories +
-                              " " +
-                              body;
+                    StringBuilder searchable =
+                        new StringBuilder();
+
+                    if (options.SearchSubject)
+                    {
+                        searchable.Append(
+                            subject);
+
+                        searchable.Append(' ');
+                    }
+
+                    if (options.SearchBody)
+                    {
+                        searchable.Append(
+                            body);
+
+                        searchable.Append(' ');
+                    }
+
+                    if (options.SearchAttachments)
+                    {
+                        searchable.Append(
+                            attachmentNames);
+
+                        searchable.Append(' ');
+
+                        searchable.Append(
+                            attachmentText);
+                    }
 
                     bool allWordsFound =
-                        searchWords.All(
-                            word =>
-                                searchableText.Contains(
-                                    word,
-                                    StringComparison.OrdinalIgnoreCase));
+                        AllWordsFound(
+                            searchable.ToString(),
+                            searchWords);
 
                     if (!allWordsFound)
                     {
                         continue;
                     }
+
+                    List<string> locations =
+                        new List<string>();
+
+                    if (options.SearchSubject &&
+                        AllWordsFound(
+                            subject,
+                            searchWords))
+                    {
+                        locations.Add(
+                            "Betreff");
+                    }
+
+                    if (options.SearchBody &&
+                        AllWordsFound(
+                            body,
+                            searchWords))
+                    {
+                        locations.Add(
+                            "Mailtext");
+                    }
+
+                    if (options.SearchAttachments)
+                    {
+                        List<string>
+                            matchingAttachments =
+                                FindMatchingAttachmentNames(
+                                    attachmentText,
+                                    searchWords);
+
+                        if (matchingAttachments.Count >
+                            0)
+                        {
+                            foreach (
+                                string fileName
+                                in matchingAttachments)
+                            {
+                                locations.Add(
+                                    "Anhang: " +
+                                    fileName);
+                            }
+                        }
+                        else if (
+                            AllWordsFound(
+                                attachmentNames +
+                                " " +
+                                attachmentText,
+                                searchWords))
+                        {
+                            locations.Add(
+                                "Anhang");
+                        }
+                    }
+
+                    foundIn =
+                        locations.Count > 0
+                            ? string.Join(
+                                " + ",
+                                locations)
+                            : "Mehrere Bereiche";
                 }
 
                 matches.Add(
                     new SearchResult
                     {
                         SortDate =
-                            mailDate
-                            ??
+                            mailDate ??
                             DateTime.MinValue,
 
                         Date =
@@ -3086,6 +3738,15 @@ namespace Datenfinder.UI
                             hasAttachment
                                 ? "Ja"
                                 : "Nein",
+
+                        AttachmentNames =
+                            string.IsNullOrWhiteSpace(
+                                attachmentNames)
+                                ? "—"
+                                : attachmentNames,
+
+                        FoundIn =
+                            foundIn,
 
                         Subject =
                             subject,
@@ -3140,6 +3801,117 @@ namespace Datenfinder.UI
             };
         }
 
+        private static bool AllWordsFound(
+            string text,
+            IEnumerable<string> words)
+        {
+            foreach (string word
+                in words)
+            {
+                if (!text.Contains(
+                    word,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static List<string>
+            FindMatchingAttachmentNames(
+                string attachmentText,
+                string[] searchWords)
+        {
+            List<string> results =
+                new List<string>();
+
+            const string startMarker =
+                "[[[ATTACHMENT:";
+
+            const string nameEndMarker =
+                "]]]";
+
+            const string endMarker =
+                "[[[/ATTACHMENT]]]";
+
+            int position = 0;
+
+            while (position <
+                attachmentText.Length)
+            {
+                int start =
+                    attachmentText.IndexOf(
+                        startMarker,
+                        position,
+                        StringComparison.Ordinal);
+
+                if (start < 0)
+                {
+                    break;
+                }
+
+                int nameStart =
+                    start +
+                    startMarker.Length;
+
+                int nameEnd =
+                    attachmentText.IndexOf(
+                        nameEndMarker,
+                        nameStart,
+                        StringComparison.Ordinal);
+
+                if (nameEnd < 0)
+                {
+                    break;
+                }
+
+                string fileName =
+                    attachmentText.Substring(
+                        nameStart,
+                        nameEnd -
+                        nameStart);
+
+                int contentStart =
+                    nameEnd +
+                    nameEndMarker.Length;
+
+                int end =
+                    attachmentText.IndexOf(
+                        endMarker,
+                        contentStart,
+                        StringComparison.Ordinal);
+
+                if (end < 0)
+                {
+                    break;
+                }
+
+                string content =
+                    attachmentText.Substring(
+                        contentStart,
+                        end -
+                        contentStart);
+
+                if (AllWordsFound(
+                    fileName +
+                    " " +
+                    content,
+                    searchWords))
+                {
+                    results.Add(
+                        fileName);
+                }
+
+                position =
+                    end +
+                    endMarker.Length;
+            }
+
+            return results;
+        }
+
         // =========================================================
         // ORIGINAL-MAIL ÖFFNEN
         // =========================================================
@@ -3191,17 +3963,10 @@ namespace Datenfinder.UI
                 return;
             }
 
-            object? outlookApplication =
-                null;
-
-            object? outlookNamespace =
-                null;
-
-            object? stores =
-                null;
-
-            object? mailItem =
-                null;
+            object? outlookApplication = null;
+            object? outlookNamespace = null;
+            object? stores = null;
+            object? mailItem = null;
 
             try
             {
@@ -3209,8 +3974,7 @@ namespace Datenfinder.UI
                     Type.GetTypeFromProgID(
                         "Outlook.Application");
 
-                if (outlookType ==
-                    null)
+                if (outlookType == null)
                 {
                     throw new InvalidOperationException(
                         "Das klassische Microsoft Outlook wurde auf diesem PC nicht gefunden.");
@@ -3220,8 +3984,7 @@ namespace Datenfinder.UI
                     Activator.CreateInstance(
                         outlookType);
 
-                if (outlookApplication ==
-                    null)
+                if (outlookApplication == null)
                 {
                     throw new InvalidOperationException(
                         "Outlook konnte nicht gestartet werden.");
@@ -3234,8 +3997,7 @@ namespace Datenfinder.UI
                     outlook.GetNamespace(
                         "MAPI");
 
-                if (outlookNamespace ==
-                    null)
+                if (outlookNamespace == null)
                 {
                     throw new InvalidOperationException(
                         "Die Outlook-MAPI-Schnittstelle konnte nicht geöffnet werden.");
@@ -3267,8 +4029,7 @@ namespace Datenfinder.UI
                         try
                         {
                             storeObject =
-                                outlookStores.Item(
-                                    i);
+                                outlookStores.Item(i);
 
                             dynamic store =
                                 storeObject;
@@ -3285,14 +4046,12 @@ namespace Datenfinder.UI
                                 continue;
                             }
 
-                            string storeId =
-                                "";
+                            string storeId = "";
 
                             try
                             {
                                 storeId =
-                                    store.StoreID
-                                    ??
+                                    store.StoreID ??
                                     "";
                             }
                             catch
@@ -3311,8 +4070,7 @@ namespace Datenfinder.UI
                                 }
                                 catch
                                 {
-                                    mailItem =
-                                        null;
+                                    mailItem = null;
                                 }
                             }
 
@@ -3326,8 +4084,7 @@ namespace Datenfinder.UI
                     }
                 }
 
-                if (mailItem ==
-                    null)
+                if (mailItem == null)
                 {
                     try
                     {
@@ -3337,13 +4094,11 @@ namespace Datenfinder.UI
                     }
                     catch
                     {
-                        mailItem =
-                            null;
+                        mailItem = null;
                     }
                 }
 
-                if (mailItem ==
-                    null)
+                if (mailItem == null)
                 {
                     MessageBox.Show(
                         "Die Original-Mail konnte in Outlook nicht mehr gefunden werden.\n\n" +
@@ -3388,43 +4143,8 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
-        // OUTLOOK-HILFSMETHODEN
+        // HILFSMETHODEN OUTLOOK
         // =========================================================
-
-        private static bool HasAttachments(
-            dynamic item)
-        {
-            object? attachmentsObject =
-                null;
-
-            try
-            {
-                attachmentsObject =
-                    item.Attachments;
-
-                if (attachmentsObject ==
-                    null)
-                {
-                    return false;
-                }
-
-                dynamic attachments =
-                    attachmentsObject;
-
-                return
-                    attachments.Count >
-                    0;
-            }
-            catch
-            {
-                return false;
-            }
-            finally
-            {
-                ReleaseComObject(
-                    attachmentsObject);
-            }
-        }
 
         private static string GetFlagDescription(
             dynamic item)
@@ -3432,8 +4152,7 @@ namespace Datenfinder.UI
             try
             {
                 int flagStatus =
-                    (int)
-                    item.FlagStatus;
+                    (int)item.FlagStatus;
 
                 string flagRequest =
                     "";
@@ -3441,16 +4160,14 @@ namespace Datenfinder.UI
                 try
                 {
                     flagRequest =
-                        item.FlagRequest
-                        ??
+                        item.FlagRequest ??
                         "";
                 }
                 catch
                 {
                 }
 
-                if (flagStatus ==
-                    1)
+                if (flagStatus == 1)
                 {
                     return
                         string.IsNullOrWhiteSpace(
@@ -3460,8 +4177,7 @@ namespace Datenfinder.UI
                               flagRequest;
                 }
 
-                if (flagStatus ==
-                    2)
+                if (flagStatus == 2)
                 {
                     return
                         string.IsNullOrWhiteSpace(
@@ -3487,85 +4203,46 @@ namespace Datenfinder.UI
         {
             try
             {
-                switch (propertyName)
+                return propertyName switch
                 {
-                    case "Subject":
+                    "Subject" =>
+                        item.Subject ?? "",
 
-                        return
-                            item.Subject
-                            ??
-                            "";
+                    "SenderName" =>
+                        item.SenderName ?? "",
 
-                    case "SenderName":
+                    "Body" =>
+                        item.Body ?? "",
 
-                        return
-                            item.SenderName
-                            ??
-                            "";
+                    "DisplayName" =>
+                        item.DisplayName ?? "",
 
-                    case "Body":
+                    "Name" =>
+                        item.Name ?? "",
 
-                        return
-                            item.Body
-                            ??
-                            "";
+                    "To" =>
+                        item.To ?? "",
 
-                    case "DisplayName":
+                    "CC" =>
+                        item.CC ?? "",
 
-                        return
-                            item.DisplayName
-                            ??
-                            "";
+                    "Categories" =>
+                        item.Categories ?? "",
 
-                    case "Name":
+                    "ConversationID" =>
+                        item.ConversationID ?? "",
 
-                        return
-                            item.Name
-                            ??
-                            "";
+                    "EntryID" =>
+                        item.EntryID ?? "",
 
-                    case "To":
-
-                        return
-                            item.To
-                            ??
-                            "";
-
-                    case "CC":
-
-                        return
-                            item.CC
-                            ??
-                            "";
-
-                    case "Categories":
-
-                        return
-                            item.Categories
-                            ??
-                            "";
-
-                    case "ConversationID":
-
-                        return
-                            item.ConversationID
-                            ??
-                            "";
-
-                    case "EntryID":
-
-                        return
-                            item.EntryID
-                            ??
-                            "";
-                }
+                    _ =>
+                        ""
+                };
             }
             catch
             {
+                return "";
             }
-
-            return
-                "";
         }
 
         private static string SafeDynamicDateTime(
@@ -3576,8 +4253,7 @@ namespace Datenfinder.UI
                 DateTime value =
                     item.ReceivedTime;
 
-                if (value.Year >
-                    1900)
+                if (value.Year > 1900)
                 {
                     return
                         value.ToString(
@@ -3601,8 +4277,7 @@ namespace Datenfinder.UI
             }
             catch
             {
-                return
-                    "";
+                return "";
             }
         }
 
@@ -3617,12 +4292,10 @@ namespace Datenfinder.UI
                 DateTimeStyles.None,
                 out DateTime result))
             {
-                return
-                    result;
+                return result;
             }
 
-            return
-                null;
+            return null;
         }
 
         private static string GetComboBoxText(
@@ -3651,22 +4324,20 @@ namespace Datenfinder.UI
             if (string.IsNullOrWhiteSpace(
                 text))
             {
-                return
-                    "";
+                return "";
             }
 
-            return
-                text
-                    .Replace(
-                        "\r",
-                        " ")
-                    .Replace(
-                        "\n",
-                        " ")
-                    .Replace(
-                        "\t",
-                        " ")
-                    .Trim();
+            return text
+                .Replace(
+                    "\r",
+                    " ")
+                .Replace(
+                    "\n",
+                    " ")
+                .Replace(
+                    "\t",
+                    " ")
+                .Trim();
         }
 
         private static string FormatFileSize(
@@ -3689,8 +4360,7 @@ namespace Datenfinder.UI
                     $"{bytes / (1024.0 * 1024.0):0.0} MB";
             }
 
-            if (bytes >=
-                1024L)
+            if (bytes >= 1024L)
             {
                 return
                     $"{bytes / 1024.0:0.0} KB";
@@ -3714,8 +4384,7 @@ namespace Datenfinder.UI
         private static void ReleaseComObject(
             object? comObject)
         {
-            if (comObject !=
-                    null &&
+            if (comObject != null &&
                 Marshal.IsComObject(
                     comObject))
             {
@@ -3728,184 +4397,99 @@ namespace Datenfinder.UI
         // DATENKLASSEN
         // =========================================================
 
+        private class AttachmentIndexData
+        {
+            public bool HasAttachments
+            {
+                get;
+                set;
+            }
+
+            public string Names
+            {
+                get;
+                set;
+            } = "";
+
+            public string SearchText
+            {
+                get;
+                set;
+            } = "";
+        }
+
         private class IndexRecord
         {
-            public string Date
-            {
-                get;
-                set;
-            } = "";
-
-            public string Sender
-            {
-                get;
-                set;
-            } = "";
-
-            public string Recipient
-            {
-                get;
-                set;
-            } = "";
-
-            public string Cc
-            {
-                get;
-                set;
-            } = "";
-
-            public string Mailbox
-            {
-                get;
-                set;
-            } = "";
-
-            public string Subject
-            {
-                get;
-                set;
-            } = "";
-
-            public string Folder
-            {
-                get;
-                set;
-            } = "";
-
-            public string Flag
-            {
-                get;
-                set;
-            } = "";
-
-            public string Attachment
-            {
-                get;
-                set;
-            } = "";
-
-            public string Categories
-            {
-                get;
-                set;
-            } = "";
-
-            public string ConversationId
-            {
-                get;
-                set;
-            } = "";
-
-            public string EntryId
-            {
-                get;
-                set;
-            } = "";
-
-            public string Body
-            {
-                get;
-                set;
-            } = "";
+            public string Date { get; set; } = "";
+            public string Sender { get; set; } = "";
+            public string Recipient { get; set; } = "";
+            public string Cc { get; set; } = "";
+            public string Mailbox { get; set; } = "";
+            public string Subject { get; set; } = "";
+            public string Folder { get; set; } = "";
+            public string Flag { get; set; } = "";
+            public string Attachment { get; set; } = "";
+            public string Categories { get; set; } = "";
+            public string ConversationId { get; set; } = "";
+            public string EntryId { get; set; } = "";
+            public string Body { get; set; } = "";
+            public string AttachmentNames { get; set; } = "";
+            public string AttachmentText { get; set; } = "";
 
             public bool ContentEquals(
                 IndexRecord other)
             {
                 return
-                    Date ==
-                        other.Date &&
-                    Sender ==
-                        other.Sender &&
-                    Recipient ==
-                        other.Recipient &&
-                    Cc ==
-                        other.Cc &&
-                    Mailbox ==
-                        other.Mailbox &&
-                    Subject ==
-                        other.Subject &&
-                    Folder ==
-                        other.Folder &&
-                    Flag ==
-                        other.Flag &&
-                    Attachment ==
-                        other.Attachment &&
-                    Categories ==
-                        other.Categories &&
-                    ConversationId ==
-                        other.ConversationId &&
-                    EntryId ==
-                        other.EntryId &&
-                    Body ==
-                        other.Body;
+                    Date == other.Date &&
+                    Sender == other.Sender &&
+                    Recipient == other.Recipient &&
+                    Cc == other.Cc &&
+                    Mailbox == other.Mailbox &&
+                    Subject == other.Subject &&
+                    Folder == other.Folder &&
+                    Flag == other.Flag &&
+                    Attachment == other.Attachment &&
+                    Categories == other.Categories &&
+                    ConversationId == other.ConversationId &&
+                    EntryId == other.EntryId &&
+                    Body == other.Body &&
+                    AttachmentNames ==
+                        other.AttachmentNames &&
+                    AttachmentText ==
+                        other.AttachmentText;
             }
         }
 
         private class SearchOptions
         {
-            public string Query
-            {
-                get;
-                set;
-            } = "";
+            public string Query { get; set; } = "";
 
-            public DateTime? FromDate
-            {
-                get;
-                set;
-            }
+            public DateTime? FromDate { get; set; }
+            public DateTime? ToDate { get; set; }
 
-            public DateTime? ToDate
-            {
-                get;
-                set;
-            }
-
-            public string Mailbox
-            {
-                get;
-                set;
-            } =
+            public string Mailbox { get; set; } =
                 "Alle Postfächer";
 
-            public string Attachment
-            {
-                get;
-                set;
-            } =
+            public string Attachment { get; set; } =
                 "Alle";
 
-            public string Flag
-            {
-                get;
-                set;
-            } =
+            public string Flag { get; set; } =
                 "Alle";
 
-            public string SenderFilter
-            {
-                get;
-                set;
-            } = "";
+            public string SenderFilter { get; set; } =
+                "";
 
-            public string RecipientFilter
-            {
-                get;
-                set;
-            } = "";
+            public string RecipientFilter { get; set; } =
+                "";
 
-            public string Sort
-            {
-                get;
-                set;
-            } =
+            public bool SearchSubject { get; set; }
+
+            public bool SearchBody { get; set; }
+
+            public bool SearchAttachments { get; set; }
+
+            public string Sort { get; set; } =
                 "Neueste zuerst";
-
-            public bool SubjectOnly
-            {
-                get;
-                set;
-            }
         }
 
         private class SearchResponse
@@ -3932,89 +4516,23 @@ namespace Datenfinder.UI
 
         public class SearchResult
         {
-            public DateTime SortDate
-            {
-                get;
-                set;
-            }
+            public DateTime SortDate { get; set; }
 
-            public string Date
-            {
-                get;
-                set;
-            } = "";
-
-            public string Mailbox
-            {
-                get;
-                set;
-            } = "";
-
-            public string Recipient
-            {
-                get;
-                set;
-            } = "";
-
-            public string Cc
-            {
-                get;
-                set;
-            } = "";
-
-            public string Sender
-            {
-                get;
-                set;
-            } = "";
-
-            public string Flag
-            {
-                get;
-                set;
-            } = "";
-
-            public string Attachment
-            {
-                get;
-                set;
-            } = "";
-
-            public string Subject
-            {
-                get;
-                set;
-            } = "";
-
-            public string Folder
-            {
-                get;
-                set;
-            } = "";
-
-            public string Categories
-            {
-                get;
-                set;
-            } = "";
-
-            public string ConversationId
-            {
-                get;
-                set;
-            } = "";
-
-            public string EntryId
-            {
-                get;
-                set;
-            } = "";
-
-            public string Body
-            {
-                get;
-                set;
-            } = "";
+            public string Date { get; set; } = "";
+            public string Mailbox { get; set; } = "";
+            public string Recipient { get; set; } = "";
+            public string Cc { get; set; } = "";
+            public string Sender { get; set; } = "";
+            public string Flag { get; set; } = "";
+            public string Attachment { get; set; } = "";
+            public string AttachmentNames { get; set; } = "";
+            public string FoundIn { get; set; } = "";
+            public string Subject { get; set; } = "";
+            public string Folder { get; set; } = "";
+            public string Categories { get; set; } = "";
+            public string ConversationId { get; set; } = "";
+            public string EntryId { get; set; } = "";
+            public string Body { get; set; } = "";
         }
     }
 }
