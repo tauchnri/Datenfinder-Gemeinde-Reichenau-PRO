@@ -4079,22 +4079,14 @@ namespace Datenfinder.UI
 
         private void UpdateSelectionDisplay()
         {
-            int count =
-                SearchResultsGrid
-                    .SelectedItems
-                    .Count;
+            int count = SearchResultsGrid.SelectedItems.Count;
 
             SelectionCountText.Text =
                 count switch
                 {
-                    0 =>
-                        "Keine Mail ausgewählt",
-
-                    1 =>
-                        "1 Mail ausgewählt",
-
-                    _ =>
-                        $"{count:N0} Mails ausgewählt"
+                    0 => "Keine Mail ausgewählt",
+                    1 => "1 Mail ausgewählt",
+                    _ => $"{count:N0} Mails ausgewählt"
                 };
         }
 
@@ -4102,14 +4094,12 @@ namespace Datenfinder.UI
             object sender,
             RoutedEventArgs e)
         {
-            if (SearchResultsGrid.Items.Count ==
-                0)
+            if (SearchResultsGrid.Items.Count == 0)
             {
                 return;
             }
 
             SearchResultsGrid.SelectAll();
-
             UpdateSelectionDisplay();
         }
 
@@ -4118,18 +4108,15 @@ namespace Datenfinder.UI
             RoutedEventArgs e)
         {
             SearchResultsGrid.UnselectAll();
-
             UpdateSelectionDisplay();
         }
 
-        private List<SearchResult>
-            GetSelectedSearchResults()
+        private List<SearchResult> GetSelectedSearchResults()
         {
-            return
-                SearchResultsGrid
-                    .SelectedItems
-                    .OfType<SearchResult>()
-                    .ToList();
+            return SearchResultsGrid
+                .SelectedItems
+                .OfType<SearchResult>()
+                .ToList();
         }
 
         // =========================================================
@@ -4155,8 +4142,7 @@ namespace Datenfinder.UI
             List<SearchResult> selected =
                 GetSelectedSearchResults();
 
-            if (selected.Count ==
-                0)
+            if (selected.Count == 0)
             {
                 MessageBox.Show(
                     "Bitte zuerst eine oder mehrere E-Mails auswählen.",
@@ -4167,15 +4153,14 @@ namespace Datenfinder.UI
                 return;
             }
 
-            ExportSearchResults(
-                selected);
+            ExportSearchResults(selected);
         }
 
         private void ExportSearchResults(
             IReadOnlyList<SearchResult> results)
         {
-            OpenFolderDialog folderDialog =
-                new OpenFolderDialog
+            Microsoft.Win32.OpenFolderDialog folderDialog =
+                new Microsoft.Win32.OpenFolderDialog
                 {
                     Title =
                         "Zielordner für den Mail-Export auswählen",
@@ -4185,11 +4170,9 @@ namespace Datenfinder.UI
                 };
 
             bool? dialogResult =
-                folderDialog.ShowDialog(
-                    this);
+                folderDialog.ShowDialog(this);
 
-            if (dialogResult !=
-                true)
+            if (dialogResult != true)
             {
                 return;
             }
@@ -4197,29 +4180,19 @@ namespace Datenfinder.UI
             string targetFolder =
                 folderDialog.FolderName;
 
-            if (string.IsNullOrWhiteSpace(
-                targetFolder))
+            if (string.IsNullOrWhiteSpace(targetFolder))
             {
                 return;
             }
 
-            Directory.CreateDirectory(
-                targetFolder);
+            Directory.CreateDirectory(targetFolder);
 
-            int exported =
-                0;
+            int exported = 0;
+            int failed = 0;
 
-            int failed =
-                0;
-
-            object? outlookApplication =
-                null;
-
-            object? outlookNamespace =
-                null;
-
-            object? stores =
-                null;
+            object? outlookApplication = null;
+            object? outlookNamespace = null;
+            object? stores = null;
 
             try
             {
@@ -4227,19 +4200,16 @@ namespace Datenfinder.UI
                     Type.GetTypeFromProgID(
                         "Outlook.Application");
 
-                if (outlookType ==
-                    null)
+                if (outlookType == null)
                 {
                     throw new InvalidOperationException(
                         "Microsoft Outlook wurde nicht gefunden.");
                 }
 
                 outlookApplication =
-                    Activator.CreateInstance(
-                        outlookType);
+                    Activator.CreateInstance(outlookType);
 
-                if (outlookApplication ==
-                    null)
+                if (outlookApplication == null)
                 {
                     throw new InvalidOperationException(
                         "Outlook konnte nicht gestartet werden.");
@@ -4249,8 +4219,7 @@ namespace Datenfinder.UI
                     outlookApplication;
 
                 outlookNamespace =
-                    outlook.GetNamespace(
-                        "MAPI");
+                    outlook.GetNamespace("MAPI");
 
                 dynamic outlookNs =
                     outlookNamespace!;
@@ -4258,12 +4227,9 @@ namespace Datenfinder.UI
                 stores =
                     outlookNs.Stores;
 
-                foreach (
-                    SearchResult result
-                    in results)
+                foreach (SearchResult result in results)
                 {
-                    object? mailItem =
-                        null;
+                    object? mailItem = null;
 
                     try
                     {
@@ -4273,11 +4239,9 @@ namespace Datenfinder.UI
                                 stores,
                                 result);
 
-                        if (mailItem ==
-                            null)
+                        if (mailItem == null)
                         {
                             failed++;
-
                             continue;
                         }
 
@@ -4285,20 +4249,15 @@ namespace Datenfinder.UI
                             mailItem;
 
                         string fileName =
-                            BuildExportFileName(
-                                result);
+                            BuildExportFileName(result);
 
                         string path =
                             GetUniqueFilePath(
                                 targetFolder,
                                 fileName);
 
-                        /*
-                         * Outlook OlSaveAsType.olMSG = 3
-                         */
-                        mail.SaveAs(
-                            path,
-                            3);
+                        // Outlook OlSaveAsType.olMSG = 3
+                        mail.SaveAs(path, 3);
 
                         exported++;
                     }
@@ -4308,8 +4267,7 @@ namespace Datenfinder.UI
                     }
                     finally
                     {
-                        ReleaseComObject(
-                            mailItem);
+                        ReleaseComObject(mailItem);
                     }
                 }
             }
@@ -4326,21 +4284,15 @@ namespace Datenfinder.UI
             }
             finally
             {
-                ReleaseComObject(
-                    stores);
-
-                ReleaseComObject(
-                    outlookNamespace);
-
-                ReleaseComObject(
-                    outlookApplication);
+                ReleaseComObject(stores);
+                ReleaseComObject(outlookNamespace);
+                ReleaseComObject(outlookApplication);
             }
 
             string message =
                 $"{exported:N0} E-Mail(s) wurden als Outlook-.msg exportiert.";
 
-            if (failed >
-                0)
+            if (failed > 0)
             {
                 message +=
                     $"\n\n{failed:N0} E-Mail(s) konnten nicht exportiert werden.";
@@ -4362,29 +4314,23 @@ namespace Datenfinder.UI
             SearchResult result)
         {
             string datePart =
-                result.SortDate >
-                    DateTime.MinValue
+                result.SortDate > DateTime.MinValue
                     ? result.SortDate.ToString(
                         "yyyy-MM-dd_HHmm")
                     : "Ohne_Datum";
 
             string subject =
-                string.IsNullOrWhiteSpace(
-                    result.Subject)
+                string.IsNullOrWhiteSpace(result.Subject)
                     ? "Ohne_Betreff"
                     : result.Subject;
 
             subject =
-                MakeSafeFileName(
-                    subject);
+                MakeSafeFileName(subject);
 
-            if (subject.Length >
-                100)
+            if (subject.Length > 100)
             {
                 subject =
-                    subject.Substring(
-                        0,
-                        100);
+                    subject.Substring(0, 100);
             }
 
             return
@@ -4407,8 +4353,7 @@ namespace Datenfinder.UI
             value =
                 value.Trim();
 
-            while (value.Contains(
-                "__"))
+            while (value.Contains("__"))
             {
                 value =
                     value.Replace(
@@ -4428,8 +4373,7 @@ namespace Datenfinder.UI
                     folder,
                     fileName);
 
-            if (!File.Exists(
-                path))
+            if (!File.Exists(path))
             {
                 return path;
             }
@@ -4442,8 +4386,7 @@ namespace Datenfinder.UI
                 Path.GetExtension(
                     fileName);
 
-            int counter =
-                2;
+            int counter = 2;
 
             while (true)
             {
@@ -4452,8 +4395,7 @@ namespace Datenfinder.UI
                         folder,
                         $"{name}_{counter}{extension}");
 
-                if (!File.Exists(
-                    candidate))
+                if (!File.Exists(candidate))
                 {
                     return candidate;
                 }
@@ -4463,7 +4405,7 @@ namespace Datenfinder.UI
         }
 
         // =========================================================
-        // MAILKETTEN / SACHVERHALTE
+        // BUILD 1130 – INTELLIGENTE SACHVERHALTSERKENNUNG
         // =========================================================
 
         private void ShowConversationButton_Click(
@@ -4485,81 +4427,820 @@ namespace Datenfinder.UI
             List<SearchResult> selected =
                 GetSelectedSearchResults();
 
-            if (selected.Count ==
-                0)
+            if (selected.Count == 0)
             {
                 MessageBox.Show(
                     "Bitte zuerst mindestens eine E-Mail auswählen.",
-                    "Mailkette / Sachverhalt",
+                    "Sachverhalt erkennen",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
                 return;
             }
 
-            HashSet<string> conversationIds =
+            List<IndexRecord> allRecords =
+                ReadIndexRecords();
+
+            List<ConversationGroup> allGroups =
+                BuildConversationGroups(
+                    allRecords);
+
+            HashSet<string> selectedEntryIds =
                 selected
-                    .Where(
-                        x =>
-                            !string.IsNullOrWhiteSpace(
-                                x.ConversationId))
-                    .Select(
-                        x =>
-                            x.ConversationId)
+                    .Where(x =>
+                        !string.IsNullOrWhiteSpace(
+                            x.EntryId))
+                    .Select(x =>
+                        x.EntryId)
                     .ToHashSet(
                         StringComparer.OrdinalIgnoreCase);
 
-            List<SearchResult> conversationMails;
+            HashSet<string> selectedConversationIds =
+                selected
+                    .Where(x =>
+                        !string.IsNullOrWhiteSpace(
+                            x.ConversationId))
+                    .Select(x =>
+                        x.ConversationId)
+                    .ToHashSet(
+                        StringComparer.OrdinalIgnoreCase);
 
-            if (conversationIds.Count >
-                0)
-            {
-                conversationMails =
-                    ReadIndexRecords()
-                        .Where(
-                            record =>
-                                !string.IsNullOrWhiteSpace(
-                                    record.ConversationId) &&
-                                conversationIds.Contains(
-                                    record.ConversationId))
-                        .Select(
-                            record =>
-                                ConvertRecordToSearchResult(
-                                    record,
-                                    "Mailkette"))
-                        .OrderBy(
-                            result =>
-                                result.SortDate)
-                        .ToList();
-            }
-            else
+            List<ConversationGroup> anchorGroups =
+                allGroups
+                    .Where(group =>
+                        group.Records.Any(record =>
+                            selectedEntryIds.Contains(
+                                record.EntryId)) ||
+                        (!string.IsNullOrWhiteSpace(
+                                group.ConversationId) &&
+                         selectedConversationIds.Contains(
+                             group.ConversationId)))
+                    .ToList();
+
+            if (anchorGroups.Count == 0)
             {
                 /*
-                 * Für alte oder ungewöhnliche Mails ohne
-                 * ConversationID zeigen wir zumindest
-                 * die manuelle Auswahl.
+                 * Fallback für sehr alte/ungewöhnliche Einträge.
                  */
-                conversationMails =
+                List<SearchResult> fallback =
                     selected
-                        .OrderBy(
-                            x =>
-                                x.SortDate)
+                        .OrderBy(x =>
+                            x.SortDate)
                         .ToList();
+
+                foreach (SearchResult mail in fallback)
+                {
+                    mail.RelationReason =
+                        "Manuell ausgewählt";
+                }
+
+                ShowConversationWindow(
+                    fallback,
+                    0,
+                    0);
+
+                return;
             }
 
+            HashSet<string> anchorKeys =
+                anchorGroups
+                    .Select(x => x.GroupKey)
+                    .ToHashSet(
+                        StringComparer.OrdinalIgnoreCase);
+
+            List<ConversationGroup> acceptedGroups =
+                new List<ConversationGroup>();
+
+            /*
+             * Die sicher ausgewählten Mailketten sind immer dabei.
+             */
+            foreach (ConversationGroup anchor in anchorGroups)
+            {
+                anchor.RelationScore = 100;
+                anchor.RelationReason =
+                    "Ausgewählte Mailkette";
+
+                acceptedGroups.Add(anchor);
+            }
+
+            /*
+             * Alle übrigen Mailketten werden gegen die
+             * ausgewählten Ausgangsketten bewertet.
+             *
+             * Schwelle bewusst hoch: 65 Punkte.
+             */
+            foreach (
+                ConversationGroup candidate
+                in allGroups)
+            {
+                if (anchorKeys.Contains(
+                    candidate.GroupKey))
+                {
+                    continue;
+                }
+
+                SachverhaltMatch? bestMatch =
+                    null;
+
+                foreach (
+                    ConversationGroup anchor
+                    in anchorGroups)
+                {
+                    SachverhaltMatch match =
+                        CalculateSachverhaltMatch(
+                            anchor,
+                            candidate);
+
+                    if (bestMatch == null ||
+                        match.Score >
+                        bestMatch.Score)
+                    {
+                        bestMatch =
+                            match;
+                    }
+                }
+
+                if (bestMatch != null &&
+                    bestMatch.Score >= 65)
+                {
+                    candidate.RelationScore =
+                        bestMatch.Score;
+
+                    candidate.RelationReason =
+                        bestMatch.Reason;
+
+                    acceptedGroups.Add(
+                        candidate);
+                }
+            }
+
+            List<SearchResult> mails =
+                new List<SearchResult>();
+
+            foreach (
+                ConversationGroup group
+                in acceptedGroups)
+            {
+                foreach (
+                    IndexRecord record
+                    in group.Records)
+                {
+                    SearchResult result =
+                        ConvertRecordToSearchResult(
+                            record,
+                            "");
+
+                    result.RelationScore =
+                        group.RelationScore;
+
+                    result.RelationReason =
+                        group.RelationReason;
+
+                    mails.Add(result);
+                }
+            }
+
+            mails =
+                mails
+                    .GroupBy(
+                        x =>
+                            string.IsNullOrWhiteSpace(
+                                x.EntryId)
+                                ? Guid.NewGuid()
+                                    .ToString()
+                                : x.EntryId,
+                        StringComparer.OrdinalIgnoreCase)
+                    .Select(x =>
+                        x.First())
+                    .OrderBy(x =>
+                        x.SortDate)
+                    .ToList();
+
+            int additionalGroups =
+                acceptedGroups.Count -
+                anchorGroups.Count;
+
+            int additionalMails =
+                acceptedGroups
+                    .Where(x =>
+                        !anchorKeys.Contains(
+                            x.GroupKey))
+                    .Sum(x =>
+                        x.Records.Count);
+
             ShowConversationWindow(
-                conversationMails);
+                mails,
+                additionalGroups,
+                additionalMails);
         }
 
-        private void ShowConversationWindow(
-            List<SearchResult> mails)
+        private static List<ConversationGroup>
+            BuildConversationGroups(
+                List<IndexRecord> records)
         {
-            if (mails.Count ==
-                0)
+            List<ConversationGroup> groups =
+                new List<ConversationGroup>();
+
+            int singleton = 0;
+
+            foreach (
+                IGrouping<string, IndexRecord> grouping
+                in records.GroupBy(
+                    record =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(
+                            record.ConversationId))
+                        {
+                            return
+                                "CID:" +
+                                record.ConversationId;
+                        }
+
+                        /*
+                         * Mails ohne ConversationID nicht
+                         * künstlich miteinander verbinden.
+                         */
+                        singleton++;
+
+                        return
+                            "SINGLE:" +
+                            singleton;
+                    },
+                    StringComparer.OrdinalIgnoreCase))
+            {
+                List<IndexRecord> groupRecords =
+                    grouping.ToList();
+
+                ConversationGroup group =
+                    new ConversationGroup
+                    {
+                        GroupKey =
+                            grouping.Key,
+
+                        ConversationId =
+                            groupRecords
+                                .Select(x =>
+                                    x.ConversationId)
+                                .FirstOrDefault(x =>
+                                    !string.IsNullOrWhiteSpace(x))
+                            ??
+                            "",
+
+                        Records =
+                            groupRecords
+                    };
+
+                group.FirstDate =
+                    groupRecords
+                        .Select(x =>
+                            ParseIndexDate(
+                                x.Date))
+                        .Where(x =>
+                            x.HasValue)
+                        .Select(x =>
+                            x!.Value)
+                        .DefaultIfEmpty(
+                            DateTime.MinValue)
+                        .Min();
+
+                group.LastDate =
+                    groupRecords
+                        .Select(x =>
+                            ParseIndexDate(
+                                x.Date))
+                        .Where(x =>
+                            x.HasValue)
+                        .Select(x =>
+                            x!.Value)
+                        .DefaultIfEmpty(
+                            DateTime.MinValue)
+                        .Max();
+
+                foreach (
+                    IndexRecord record
+                    in groupRecords)
+                {
+                    string normalizedSubject =
+                        NormalizeSubject(
+                            record.Subject);
+
+                    if (!string.IsNullOrWhiteSpace(
+                        normalizedSubject))
+                    {
+                        group.NormalizedSubjects.Add(
+                            normalizedSubject);
+
+                        foreach (
+                            string word
+                            in GetMeaningfulWords(
+                                normalizedSubject))
+                        {
+                            group.SubjectWords.Add(
+                                word);
+                        }
+                    }
+
+                    foreach (
+                        string participant
+                        in ExtractParticipants(
+                            record.Sender,
+                            record.Recipient,
+                            record.Cc))
+                    {
+                        group.Participants.Add(
+                            participant);
+                    }
+
+                    foreach (
+                        string word
+                        in GetMeaningfulWords(
+                            record.AttachmentNames))
+                    {
+                        group.AttachmentWords.Add(
+                            word);
+                    }
+                }
+
+                groups.Add(group);
+            }
+
+            return groups;
+        }
+
+        private static SachverhaltMatch
+            CalculateSachverhaltMatch(
+                ConversationGroup anchor,
+                ConversationGroup candidate)
+        {
+            int score = 0;
+
+            List<string> reasons =
+                new List<string>();
+
+            // -----------------------------------------------------
+            // 1. Betreff
+            // -----------------------------------------------------
+
+            bool exactSubject =
+                anchor.NormalizedSubjects
+                    .Any(subject =>
+                        candidate.NormalizedSubjects
+                            .Contains(subject));
+
+            double subjectSimilarity =
+                CalculateJaccard(
+                    anchor.SubjectWords,
+                    candidate.SubjectWords);
+
+            if (exactSubject &&
+                anchor.NormalizedSubjects.Count > 0 &&
+                candidate.NormalizedSubjects.Count > 0)
+            {
+                score += 55;
+
+                reasons.Add(
+                    "gleicher bereinigter Betreff");
+            }
+            else if (subjectSimilarity >= 0.75)
+            {
+                score += 45;
+
+                reasons.Add(
+                    "sehr ähnlicher Betreff");
+            }
+            else if (subjectSimilarity >= 0.50)
+            {
+                score += 30;
+
+                reasons.Add(
+                    "ähnlicher Betreff");
+            }
+            else if (subjectSimilarity >= 0.35)
+            {
+                score += 15;
+
+                reasons.Add(
+                    "teilweise ähnlicher Betreff");
+            }
+
+            // -----------------------------------------------------
+            // 2. Beteiligte
+            // -----------------------------------------------------
+
+            double participantSimilarity =
+                CalculateJaccard(
+                    anchor.Participants,
+                    candidate.Participants);
+
+            int commonParticipants =
+                anchor.Participants
+                    .Intersect(
+                        candidate.Participants,
+                        StringComparer.OrdinalIgnoreCase)
+                    .Count();
+
+            if (participantSimilarity >= 0.60 &&
+                commonParticipants >= 2)
+            {
+                score += 25;
+
+                reasons.Add(
+                    "stark überschneidende Beteiligte");
+            }
+            else if (commonParticipants >= 2)
+            {
+                score += 18;
+
+                reasons.Add(
+                    "mehrere gemeinsame Beteiligte");
+            }
+            else if (commonParticipants == 1)
+            {
+                score += 8;
+
+                reasons.Add(
+                    "gemeinsamer Beteiligter");
+            }
+
+            // -----------------------------------------------------
+            // 3. Zeitraum
+            // -----------------------------------------------------
+
+            double dayDistance =
+                CalculateGroupDayDistance(
+                    anchor,
+                    candidate);
+
+            if (dayDistance <= 7)
+            {
+                score += 18;
+
+                reasons.Add(
+                    "sehr zeitnah");
+            }
+            else if (dayDistance <= 30)
+            {
+                score += 12;
+
+                reasons.Add(
+                    "zeitliche Nähe");
+            }
+            else if (dayDistance <= 90)
+            {
+                score += 6;
+
+                reasons.Add(
+                    "zeitlicher Zusammenhang");
+            }
+
+            // -----------------------------------------------------
+            // 4. Gemeinsame Dokument-/Anhangbegriffe
+            // -----------------------------------------------------
+
+            double attachmentSimilarity =
+                CalculateJaccard(
+                    anchor.AttachmentWords,
+                    candidate.AttachmentWords);
+
+            if (attachmentSimilarity >= 0.60 &&
+                anchor.AttachmentWords.Count > 0 &&
+                candidate.AttachmentWords.Count > 0)
+            {
+                score += 12;
+
+                reasons.Add(
+                    "ähnliche Anhänge");
+            }
+            else if (attachmentSimilarity >= 0.35)
+            {
+                score += 6;
+
+                reasons.Add(
+                    "gemeinsame Anhangbegriffe");
+            }
+
+            /*
+             * Sicherheitsregel:
+             * Nur gemeinsame Beteiligte + zeitliche Nähe reichen
+             * NICHT für einen Sachverhalt.
+             *
+             * Ohne nennenswerte Betreffähnlichkeit wird der
+             * Maximalwert begrenzt.
+             */
+            if (subjectSimilarity < 0.35 &&
+                !exactSubject)
+            {
+                score =
+                    Math.Min(
+                        score,
+                        50);
+            }
+
+            return new SachverhaltMatch
+            {
+                Score =
+                    score,
+
+                Reason =
+                    reasons.Count > 0
+                        ? string.Join(
+                            " + ",
+                            reasons)
+                        : "kein ausreichender Zusammenhang"
+            };
+        }
+
+        private static string NormalizeSubject(
+            string subject)
+        {
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                return "";
+            }
+
+            string result =
+                subject.Trim();
+
+            bool changed;
+
+            do
+            {
+                changed = false;
+
+                string[] prefixes =
+                {
+                    "RE:",
+                    "AW:",
+                    "WG:",
+                    "FW:",
+                    "FWD:",
+                    "ANTWORT:",
+                    "WEITERLEITUNG:"
+                };
+
+                foreach (string prefix in prefixes)
+                {
+                    if (result.StartsWith(
+                        prefix,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        result =
+                            result.Substring(
+                                prefix.Length)
+                            .Trim();
+
+                        changed = true;
+                    }
+                }
+            }
+            while (changed);
+
+            result =
+                result
+                    .Replace(
+                        "_",
+                        " ")
+                    .Replace(
+                        "-",
+                        " ")
+                    .Replace(
+                        "/",
+                        " ")
+                    .Replace(
+                        "\\",
+                        " ");
+
+            while (result.Contains("  "))
+            {
+                result =
+                    result.Replace(
+                        "  ",
+                        " ");
+            }
+
+            return
+                result
+                    .Trim()
+                    .ToLowerInvariant();
+        }
+
+        private static HashSet<string>
+            GetMeaningfulWords(
+                string text)
+        {
+            HashSet<string> words =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return words;
+            }
+
+            char[] separators =
+            {
+                ' ',
+                '\t',
+                '\r',
+                '\n',
+                '.',
+                ',',
+                ';',
+                ':',
+                '-',
+                '_',
+                '/',
+                '\\',
+                '(',
+                ')',
+                '[',
+                ']',
+                '{',
+                '}',
+                '!',
+                '?',
+                '"',
+                '\'',
+                '+',
+                '=',
+                '&'
+            };
+
+            HashSet<string> stopWords =
+                new HashSet<string>(
+                    new[]
+                    {
+                        "der", "die", "das",
+                        "den", "dem", "des",
+                        "ein", "eine", "einer",
+                        "eines", "einem", "einen",
+                        "und", "oder", "mit",
+                        "für", "von", "vom",
+                        "im", "in", "am", "an",
+                        "auf", "zu", "zum", "zur",
+                        "bei", "aus", "über",
+                        "unter", "wegen", "nach",
+                        "vor", "bitte", "mail",
+                        "email", "re", "aw", "wg",
+                        "fw", "fwd", "pdf", "docx",
+                        "xlsx", "txt", "csv"
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+
+            foreach (
+                string raw
+                in text.Split(
+                    separators,
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries))
+            {
+                string word =
+                    raw.Trim()
+                       .ToLowerInvariant();
+
+                if (word.Length < 3)
+                {
+                    continue;
+                }
+
+                if (stopWords.Contains(word))
+                {
+                    continue;
+                }
+
+                words.Add(word);
+            }
+
+            return words;
+        }
+
+        private static HashSet<string>
+            ExtractParticipants(
+                params string[] values)
+        {
+            HashSet<string> result =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            char[] separators =
+            {
+                ';',
+                ',',
+                '\r',
+                '\n'
+            };
+
+            foreach (string value in values)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                foreach (
+                    string part
+                    in value.Split(
+                        separators,
+                        StringSplitOptions.RemoveEmptyEntries |
+                        StringSplitOptions.TrimEntries))
+                {
+                    string participant =
+                        part.Trim()
+                            .ToLowerInvariant();
+
+                    if (participant.Length < 2)
+                    {
+                        continue;
+                    }
+
+                    result.Add(participant);
+                }
+            }
+
+            return result;
+        }
+
+        private static double CalculateJaccard(
+            HashSet<string> first,
+            HashSet<string> second)
+        {
+            if (first.Count == 0 ||
+                second.Count == 0)
+            {
+                return 0;
+            }
+
+            int intersection =
+                first
+                    .Intersect(
+                        second,
+                        StringComparer.OrdinalIgnoreCase)
+                    .Count();
+
+            int union =
+                first
+                    .Union(
+                        second,
+                        StringComparer.OrdinalIgnoreCase)
+                    .Count();
+
+            if (union == 0)
+            {
+                return 0;
+            }
+
+            return
+                (double)intersection /
+                union;
+        }
+
+        private static double CalculateGroupDayDistance(
+            ConversationGroup first,
+            ConversationGroup second)
+        {
+            if (first.FirstDate == DateTime.MinValue ||
+                second.FirstDate == DateTime.MinValue)
+            {
+                return double.MaxValue;
+            }
+
+            /*
+             * Zeiträume überschneiden sich.
+             */
+            if (first.FirstDate <= second.LastDate &&
+                second.FirstDate <= first.LastDate)
+            {
+                return 0;
+            }
+
+            if (first.LastDate < second.FirstDate)
+            {
+                return
+                    (second.FirstDate -
+                     first.LastDate)
+                    .TotalDays;
+            }
+
+            return
+                (first.FirstDate -
+                 second.LastDate)
+                .TotalDays;
+        }
+
+        // =========================================================
+        // SACHVERHALTSFENSTER
+        // =========================================================
+
+        private void ShowConversationWindow(
+            List<SearchResult> mails,
+            int additionalGroups,
+            int additionalMails)
+        {
+            if (mails.Count == 0)
             {
                 MessageBox.Show(
-                    "Für die ausgewählte Mail wurde keine Mailkette gefunden.",
-                    "Mailkette / Sachverhalt",
+                    "Für die ausgewählte Mail wurde kein Sachverhalt gefunden.",
+                    "Sachverhalt",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
@@ -4568,78 +5249,52 @@ namespace Datenfinder.UI
 
             int conversationCount =
                 mails
-                    .Where(
-                        x =>
-                            !string.IsNullOrWhiteSpace(
-                                x.ConversationId))
-                    .Select(
-                        x =>
-                            x.ConversationId)
+                    .Where(x =>
+                        !string.IsNullOrWhiteSpace(
+                            x.ConversationId))
+                    .Select(x =>
+                        x.ConversationId)
                     .Distinct(
                         StringComparer.OrdinalIgnoreCase)
                     .Count();
 
             DateTime firstDate =
                 mails
-                    .Where(
-                        x =>
-                            x.SortDate >
-                            DateTime.MinValue)
-                    .Select(
-                        x =>
-                            x.SortDate)
+                    .Where(x =>
+                        x.SortDate > DateTime.MinValue)
+                    .Select(x =>
+                        x.SortDate)
                     .DefaultIfEmpty(
                         DateTime.MinValue)
                     .Min();
 
             DateTime lastDate =
                 mails
-                    .Where(
-                        x =>
-                            x.SortDate >
-                            DateTime.MinValue)
-                    .Select(
-                        x =>
-                            x.SortDate)
+                    .Where(x =>
+                        x.SortDate > DateTime.MinValue)
+                    .Select(x =>
+                        x.SortDate)
                     .DefaultIfEmpty(
                         DateTime.MinValue)
                     .Max();
-
-            int participantCount =
-                mails
-                    .SelectMany(
-                        x =>
-                            new[]
-                            {
-                                x.Sender,
-                                x.Recipient,
-                                x.Cc
-                            })
-                    .Where(
-                        x =>
-                            !string.IsNullOrWhiteSpace(
-                                x))
-                    .Distinct(
-                        StringComparer.OrdinalIgnoreCase)
-                    .Count();
 
             Window window =
                 new Window
                 {
                     Title =
-                        "Datenfinder – Mailkette / Sachverhalt",
+                        "Datenfinder – Sachverhalt",
 
                     Width =
-                        1250,
+                        1350,
 
                     Height =
-                        700,
+                        720,
 
                     MinWidth =
-                        900,
+                        950,
 
                     MinHeight =
-                        500,
+                        520,
 
                     WindowStartupLocation =
                         WindowStartupLocation.CenterOwner,
@@ -4659,8 +5314,7 @@ namespace Datenfinder.UI
                 new Grid
                 {
                     Margin =
-                        new Thickness(
-                            18)
+                        new Thickness(18)
                 };
 
             root.RowDefinitions.Add(
@@ -4674,8 +5328,7 @@ namespace Datenfinder.UI
                 new RowDefinition
                 {
                     Height =
-                        new GridLength(
-                            10)
+                        new GridLength(10)
                 });
 
             root.RowDefinitions.Add(
@@ -4691,8 +5344,7 @@ namespace Datenfinder.UI
                 new RowDefinition
                 {
                     Height =
-                        new GridLength(
-                            10)
+                        new GridLength(10)
                 });
 
             root.RowDefinitions.Add(
@@ -4716,16 +5368,13 @@ namespace Datenfinder.UI
                                 222)),
 
                     BorderThickness =
-                        new Thickness(
-                            1),
+                        new Thickness(1),
 
                     CornerRadius =
-                        new CornerRadius(
-                            7),
+                        new CornerRadius(7),
 
                     Padding =
-                        new Thickness(
-                            14)
+                        new Thickness(14)
                 };
 
             StackPanel summary =
@@ -4735,7 +5384,7 @@ namespace Datenfinder.UI
                 new TextBlock
                 {
                     Text =
-                        "Mailkette / Sachverhalt",
+                        "Erkannter Sachverhalt",
 
                     FontSize =
                         20,
@@ -4752,8 +5401,7 @@ namespace Datenfinder.UI
                 });
 
             string dateText =
-                firstDate >
-                    DateTime.MinValue
+                firstDate > DateTime.MinValue
                     ? $"{firstDate:dd.MM.yyyy} bis {lastDate:dd.MM.yyyy}"
                     : "Zeitraum nicht verfügbar";
 
@@ -4762,8 +5410,8 @@ namespace Datenfinder.UI
                 {
                     Text =
                         $"{mails.Count:N0} E-Mails  •  " +
-                        $"{Math.Max(1, conversationCount):N0} Mailkette(n)  •  " +
-                        $"{participantCount:N0} Beteiligte  •  {dateText}",
+                        $"{Math.Max(1, conversationCount):N0} Mailketten  •  " +
+                        $"{dateText}",
 
                     Margin =
                         new Thickness(
@@ -4779,17 +5427,68 @@ namespace Datenfinder.UI
                         12
                 });
 
+            if (additionalGroups > 0)
+            {
+                summary.Children.Add(
+                    new TextBlock
+                    {
+                        Text =
+                            $"Zusätzlich erkannt: {additionalGroups:N0} weitere Mailkette(n) mit {additionalMails:N0} E-Mail(s).",
+
+                        Margin =
+                            new Thickness(
+                                0,
+                                5,
+                                0,
+                                0),
+
+                        Foreground =
+                            new SolidColorBrush(
+                                Color.FromRgb(
+                                    0,
+                                    120,
+                                    70)),
+
+                        FontWeight =
+                            FontWeights.SemiBold,
+
+                        FontSize =
+                            11
+                    });
+            }
+            else
+            {
+                summary.Children.Add(
+                    new TextBlock
+                    {
+                        Text =
+                            "Es wurden keine zusätzlichen ausreichend sicheren Mailketten erkannt.",
+
+                        Margin =
+                            new Thickness(
+                                0,
+                                5,
+                                0,
+                                0),
+
+                        Foreground =
+                            Brushes.Gray,
+
+                        FontSize =
+                            10
+                    });
+            }
+
             summary.Children.Add(
                 new TextBlock
                 {
                     Text =
-                        "Die Zusammenfassung basiert derzeit zuverlässig auf der Outlook-ConversationID. " +
-                        "Die intelligentere sachliche Zusammenführung unterschiedlicher Mailketten folgt in einem nächsten Schritt.",
+                        "Automatische Zuordnungen werden konservativ anhand von Betreff, Beteiligten, Zeitraum und Anhängen bewertet.",
 
                     Margin =
                         new Thickness(
                             0,
-                            5,
+                            4,
                             0,
                             0),
 
@@ -4853,69 +5552,40 @@ namespace Datenfinder.UI
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Datum",
-
+                    Header = "Datum",
                     Binding =
                         new System.Windows.Data.Binding(
                             "Date"),
-
-                    Width =
-                        130
+                    Width = 125
                 });
 
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Postfach",
-
-                    Binding =
-                        new System.Windows.Data.Binding(
-                            "Mailbox"),
-
-                    Width =
-                        150
-                });
-
-            conversationGrid.Columns.Add(
-                new DataGridTextColumn
-                {
-                    Header =
-                        "Absender",
-
+                    Header = "Absender",
                     Binding =
                         new System.Windows.Data.Binding(
                             "Sender"),
-
-                    Width =
-                        180
+                    Width = 175
                 });
 
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Empfänger",
-
+                    Header = "Empfänger",
                     Binding =
                         new System.Windows.Data.Binding(
                             "Recipient"),
-
-                    Width =
-                        200
+                    Width = 190
                 });
 
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Betreff",
-
+                    Header = "Betreff",
                     Binding =
                         new System.Windows.Data.Binding(
                             "Subject"),
-
                     Width =
                         new DataGridLength(
                             2,
@@ -4925,31 +5595,31 @@ namespace Datenfinder.UI
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Anhänge",
-
+                    Header = "Zusammenhang",
                     Binding =
                         new System.Windows.Data.Binding(
-                            "AttachmentNames"),
-
-                    Width =
-                        200
+                            "RelationReason"),
+                    Width = 260
                 });
 
             conversationGrid.Columns.Add(
                 new DataGridTextColumn
                 {
-                    Header =
-                        "Ordner",
-
+                    Header = "Bewertung",
                     Binding =
                         new System.Windows.Data.Binding(
-                            "Folder"),
+                            "RelationScore"),
+                    Width = 75
+                });
 
-                    Width =
-                        new DataGridLength(
-                            1.5,
-                            DataGridLengthUnitType.Star)
+            conversationGrid.Columns.Add(
+                new DataGridTextColumn
+                {
+                    Header = "Anhänge",
+                    Binding =
+                        new System.Windows.Data.Binding(
+                            "AttachmentNames"),
+                    Width = 190
                 });
 
             conversationGrid.MouseDoubleClick +=
@@ -4958,8 +5628,7 @@ namespace Datenfinder.UI
                     if (conversationGrid.SelectedItem
                         is SearchResult result)
                     {
-                        OpenSpecificMail(
-                            result);
+                        OpenSpecificMail(result);
                     }
                 };
 
@@ -5003,7 +5672,7 @@ namespace Datenfinder.UI
                         GridLength.Auto
                 });
 
-            TextBlock help =
+            buttonGrid.Children.Add(
                 new TextBlock
                 {
                     Text =
@@ -5017,10 +5686,7 @@ namespace Datenfinder.UI
 
                     FontSize =
                         11
-                };
-
-            buttonGrid.Children.Add(
-                help);
+                });
 
             Button openButton =
                 new Button
@@ -5062,8 +5728,7 @@ namespace Datenfinder.UI
                         return;
                     }
 
-                    OpenSpecificMail(
-                        result);
+                    OpenSpecificMail(result);
                 };
 
             buttonGrid.Children.Add(
@@ -5102,8 +5767,7 @@ namespace Datenfinder.UI
                             .OfType<SearchResult>()
                             .ToList();
 
-                    if (selected.Count ==
-                        0)
+                    if (selected.Count == 0)
                     {
                         MessageBox.Show(
                             window,
@@ -5115,8 +5779,7 @@ namespace Datenfinder.UI
                         return;
                     }
 
-                    ExportSearchResults(
-                        selected);
+                    ExportSearchResults(selected);
                 };
 
             buttonGrid.Children.Add(
@@ -5126,10 +5789,10 @@ namespace Datenfinder.UI
                 new Button
                 {
                     Content =
-                        "Gesamte Mailkette exportieren",
+                        "Gesamten Sachverhalt exportieren",
 
                     Width =
-                        195,
+                        205,
 
                     Height =
                         32,
@@ -5162,8 +5825,7 @@ namespace Datenfinder.UI
             exportAllButton.Click +=
                 (_, _) =>
                 {
-                    ExportSearchResults(
-                        mails);
+                    ExportSearchResults(mails);
                 };
 
             buttonGrid.Children.Add(
@@ -5193,8 +5855,7 @@ namespace Datenfinder.UI
             List<SearchResult> selected =
                 GetSelectedSearchResults();
 
-            if (selected.Count ==
-                0)
+            if (selected.Count == 0)
             {
                 MessageBox.Show(
                     "Bitte zuerst eine E-Mail auswählen.",
@@ -5225,25 +5886,17 @@ namespace Datenfinder.UI
             if (SearchResultsGrid.SelectedItem
                 is SearchResult result)
             {
-                OpenSpecificMail(
-                    result);
+                OpenSpecificMail(result);
             }
         }
 
         private void OpenSpecificMail(
             SearchResult result)
         {
-            object? outlookApplication =
-                null;
-
-            object? outlookNamespace =
-                null;
-
-            object? stores =
-                null;
-
-            object? mailItem =
-                null;
+            object? outlookApplication = null;
+            object? outlookNamespace = null;
+            object? stores = null;
+            object? mailItem = null;
 
             try
             {
@@ -5251,8 +5904,7 @@ namespace Datenfinder.UI
                     Type.GetTypeFromProgID(
                         "Outlook.Application");
 
-                if (outlookType ==
-                    null)
+                if (outlookType == null)
                 {
                     throw new InvalidOperationException(
                         "Das klassische Microsoft Outlook wurde auf diesem PC nicht gefunden.");
@@ -5262,8 +5914,7 @@ namespace Datenfinder.UI
                     Activator.CreateInstance(
                         outlookType);
 
-                if (outlookApplication ==
-                    null)
+                if (outlookApplication == null)
                 {
                     throw new InvalidOperationException(
                         "Outlook konnte nicht gestartet werden.");
@@ -5288,8 +5939,7 @@ namespace Datenfinder.UI
                         stores,
                         result);
 
-                if (mailItem ==
-                    null)
+                if (mailItem == null)
                 {
                     MessageBox.Show(
                         "Die Original-Mail konnte in Outlook nicht mehr gefunden werden.\n\n" +
@@ -5304,8 +5954,7 @@ namespace Datenfinder.UI
                 dynamic mail =
                     mailItem;
 
-                mail.Display(
-                    false);
+                mail.Display(false);
             }
             catch (Exception ex)
             {
@@ -5318,17 +5967,10 @@ namespace Datenfinder.UI
             }
             finally
             {
-                ReleaseComObject(
-                    mailItem);
-
-                ReleaseComObject(
-                    stores);
-
-                ReleaseComObject(
-                    outlookNamespace);
-
-                ReleaseComObject(
-                    outlookApplication);
+                ReleaseComObject(mailItem);
+                ReleaseComObject(stores);
+                ReleaseComObject(outlookNamespace);
+                ReleaseComObject(outlookApplication);
             }
         }
 
@@ -5337,11 +5979,9 @@ namespace Datenfinder.UI
             object? storesObject,
             SearchResult result)
         {
-            object? mailItem =
-                null;
+            object? mailItem = null;
 
-            if (storesObject !=
-                    null &&
+            if (storesObject != null &&
                 !string.IsNullOrWhiteSpace(
                     result.Mailbox))
             {
@@ -5355,14 +5995,12 @@ namespace Datenfinder.UI
                      i <= storeCount;
                      i++)
                 {
-                    object? storeObject =
-                        null;
+                    object? storeObject = null;
 
                     try
                     {
                         storeObject =
-                            stores.Item(
-                                i);
+                            stores.Item(i);
 
                         dynamic store =
                             storeObject;
@@ -5379,8 +6017,7 @@ namespace Datenfinder.UI
                             continue;
                         }
 
-                        string storeId =
-                            "";
+                        string storeId = "";
 
                         try
                         {
@@ -5404,8 +6041,7 @@ namespace Datenfinder.UI
                             }
                             catch
                             {
-                                mailItem =
-                                    null;
+                                mailItem = null;
                             }
                         }
 
@@ -5419,8 +6055,7 @@ namespace Datenfinder.UI
                 }
             }
 
-            if (mailItem ==
-                null)
+            if (mailItem == null)
             {
                 try
                 {
@@ -5430,8 +6065,7 @@ namespace Datenfinder.UI
                 }
                 catch
                 {
-                    mailItem =
-                        null;
+                    mailItem = null;
                 }
             }
 
@@ -5450,8 +6084,7 @@ namespace Datenfinder.UI
                 int flagStatus =
                     (int)item.FlagStatus;
 
-                string flagRequest =
-                    "";
+                string flagRequest = "";
 
                 try
                 {
@@ -5463,8 +6096,7 @@ namespace Datenfinder.UI
                 {
                 }
 
-                if (flagStatus ==
-                    1)
+                if (flagStatus == 1)
                 {
                     return
                         string.IsNullOrWhiteSpace(
@@ -5474,8 +6106,7 @@ namespace Datenfinder.UI
                               flagRequest;
                 }
 
-                if (flagStatus ==
-                    2)
+                if (flagStatus == 2)
                 {
                     return
                         string.IsNullOrWhiteSpace(
@@ -5504,44 +6135,34 @@ namespace Datenfinder.UI
                 return propertyName switch
                 {
                     "Subject" =>
-                        item.Subject ??
-                        "",
+                        item.Subject ?? "",
 
                     "SenderName" =>
-                        item.SenderName ??
-                        "",
+                        item.SenderName ?? "",
 
                     "Body" =>
-                        item.Body ??
-                        "",
+                        item.Body ?? "",
 
                     "DisplayName" =>
-                        item.DisplayName ??
-                        "",
+                        item.DisplayName ?? "",
 
                     "Name" =>
-                        item.Name ??
-                        "",
+                        item.Name ?? "",
 
                     "To" =>
-                        item.To ??
-                        "",
+                        item.To ?? "",
 
                     "CC" =>
-                        item.CC ??
-                        "",
+                        item.CC ?? "",
 
                     "Categories" =>
-                        item.Categories ??
-                        "",
+                        item.Categories ?? "",
 
                     "ConversationID" =>
-                        item.ConversationID ??
-                        "",
+                        item.ConversationID ?? "",
 
                     "EntryID" =>
-                        item.EntryID ??
-                        "",
+                        item.EntryID ?? "",
 
                     _ =>
                         ""
@@ -5561,13 +6182,11 @@ namespace Datenfinder.UI
                 DateTime value =
                     item.ReceivedTime;
 
-                if (value.Year >
-                    1900)
+                if (value.Year > 1900)
                 {
-                    return
-                        value.ToString(
-                            "yyyy-MM-dd HH:mm:ss",
-                            CultureInfo.InvariantCulture);
+                    return value.ToString(
+                        "yyyy-MM-dd HH:mm:ss",
+                        CultureInfo.InvariantCulture);
                 }
             }
             catch
@@ -5579,10 +6198,9 @@ namespace Datenfinder.UI
                 DateTime value =
                     item.SentOn;
 
-                return
-                    value.ToString(
-                        "yyyy-MM-dd HH:mm:ss",
-                        CultureInfo.InvariantCulture);
+                return value.ToString(
+                    "yyyy-MM-dd HH:mm:ss",
+                    CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -5630,22 +6248,15 @@ namespace Datenfinder.UI
         private static string CleanIndexText(
             string? text)
         {
-            if (string.IsNullOrWhiteSpace(
-                text))
+            if (string.IsNullOrWhiteSpace(text))
             {
                 return "";
             }
 
             return text
-                .Replace(
-                    "\r",
-                    " ")
-                .Replace(
-                    "\n",
-                    " ")
-                .Replace(
-                    "\t",
-                    " ")
+                .Replace("\r", " ")
+                .Replace("\n", " ")
+                .Replace("\t", " ")
                 .Trim();
         }
 
@@ -5669,8 +6280,7 @@ namespace Datenfinder.UI
                     $"{bytes / (1024.0 * 1024.0):0.0} MB";
             }
 
-            if (bytes >=
-                1024L)
+            if (bytes >= 1024L)
             {
                 return
                     $"{bytes / 1024.0:0.0} KB";
@@ -5694,10 +6304,8 @@ namespace Datenfinder.UI
         private static void ReleaseComObject(
             object? comObject)
         {
-            if (comObject !=
-                    null &&
-                Marshal.IsComObject(
-                    comObject))
+            if (comObject != null &&
+                Marshal.IsComObject(comObject))
             {
                 Marshal.FinalReleaseComObject(
                     comObject);
@@ -5708,356 +6316,152 @@ namespace Datenfinder.UI
         // DATENKLASSEN
         // =========================================================
 
+        private class ConversationGroup
+        {
+            public string GroupKey { get; set; } = "";
+            public string ConversationId { get; set; } = "";
+
+            public List<IndexRecord> Records { get; set; } =
+                new List<IndexRecord>();
+
+            public HashSet<string> NormalizedSubjects { get; set; } =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            public HashSet<string> SubjectWords { get; set; } =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            public HashSet<string> Participants { get; set; } =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            public HashSet<string> AttachmentWords { get; set; } =
+                new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+
+            public DateTime FirstDate { get; set; }
+            public DateTime LastDate { get; set; }
+
+            public int RelationScore { get; set; }
+            public string RelationReason { get; set; } = "";
+        }
+
+        private class SachverhaltMatch
+        {
+            public int Score { get; set; }
+            public string Reason { get; set; } = "";
+        }
+
         private class AttachmentIndexData
         {
-            public bool HasAttachments
-            {
-                get;
-                set;
-            }
+            public bool HasAttachments { get; set; }
 
-            public string Names
-            {
-                get;
-                set;
-            } = "";
+            public string Names { get; set; } = "";
 
-            public string SearchText
-            {
-                get;
-                set;
-            } = "";
+            public string SearchText { get; set; } = "";
         }
 
         private class IndexRecord
         {
-            public string Date
-            {
-                get;
-                set;
-            } = "";
-
-            public string Sender
-            {
-                get;
-                set;
-            } = "";
-
-            public string Recipient
-            {
-                get;
-                set;
-            } = "";
-
-            public string Cc
-            {
-                get;
-                set;
-            } = "";
-
-            public string Mailbox
-            {
-                get;
-                set;
-            } = "";
-
-            public string Subject
-            {
-                get;
-                set;
-            } = "";
-
-            public string Folder
-            {
-                get;
-                set;
-            } = "";
-
-            public string Flag
-            {
-                get;
-                set;
-            } = "";
-
-            public string Attachment
-            {
-                get;
-                set;
-            } = "";
-
-            public string Categories
-            {
-                get;
-                set;
-            } = "";
-
-            public string ConversationId
-            {
-                get;
-                set;
-            } = "";
-
-            public string EntryId
-            {
-                get;
-                set;
-            } = "";
-
-            public string Body
-            {
-                get;
-                set;
-            } = "";
-
-            public string AttachmentNames
-            {
-                get;
-                set;
-            } = "";
-
-            public string AttachmentText
-            {
-                get;
-                set;
-            } = "";
+            public string Date { get; set; } = "";
+            public string Sender { get; set; } = "";
+            public string Recipient { get; set; } = "";
+            public string Cc { get; set; } = "";
+            public string Mailbox { get; set; } = "";
+            public string Subject { get; set; } = "";
+            public string Folder { get; set; } = "";
+            public string Flag { get; set; } = "";
+            public string Attachment { get; set; } = "";
+            public string Categories { get; set; } = "";
+            public string ConversationId { get; set; } = "";
+            public string EntryId { get; set; } = "";
+            public string Body { get; set; } = "";
+            public string AttachmentNames { get; set; } = "";
+            public string AttachmentText { get; set; } = "";
 
             public bool ContentEquals(
                 IndexRecord other)
             {
                 return
-                    Date ==
-                        other.Date &&
-                    Sender ==
-                        other.Sender &&
-                    Recipient ==
-                        other.Recipient &&
-                    Cc ==
-                        other.Cc &&
-                    Mailbox ==
-                        other.Mailbox &&
-                    Subject ==
-                        other.Subject &&
-                    Folder ==
-                        other.Folder &&
-                    Flag ==
-                        other.Flag &&
-                    Attachment ==
-                        other.Attachment &&
-                    Categories ==
-                        other.Categories &&
-                    ConversationId ==
-                        other.ConversationId &&
-                    EntryId ==
-                        other.EntryId &&
-                    Body ==
-                        other.Body &&
-                    AttachmentNames ==
-                        other.AttachmentNames &&
-                    AttachmentText ==
-                        other.AttachmentText;
+                    Date == other.Date &&
+                    Sender == other.Sender &&
+                    Recipient == other.Recipient &&
+                    Cc == other.Cc &&
+                    Mailbox == other.Mailbox &&
+                    Subject == other.Subject &&
+                    Folder == other.Folder &&
+                    Flag == other.Flag &&
+                    Attachment == other.Attachment &&
+                    Categories == other.Categories &&
+                    ConversationId == other.ConversationId &&
+                    EntryId == other.EntryId &&
+                    Body == other.Body &&
+                    AttachmentNames == other.AttachmentNames &&
+                    AttachmentText == other.AttachmentText;
             }
         }
 
         private class SearchOptions
         {
-            public string Query
-            {
-                get;
-                set;
-            } = "";
+            public string Query { get; set; } = "";
 
-            public DateTime? FromDate
-            {
-                get;
-                set;
-            }
+            public DateTime? FromDate { get; set; }
+            public DateTime? ToDate { get; set; }
 
-            public DateTime? ToDate
-            {
-                get;
-                set;
-            }
-
-            public string Mailbox
-            {
-                get;
-                set;
-            } =
+            public string Mailbox { get; set; } =
                 "Alle Postfächer";
 
-            public string Attachment
-            {
-                get;
-                set;
-            } =
+            public string Attachment { get; set; } =
                 "Alle";
 
-            public string Flag
-            {
-                get;
-                set;
-            } =
+            public string Flag { get; set; } =
                 "Alle";
 
-            public string SenderFilter
-            {
-                get;
-                set;
-            } =
-                "";
+            public string SenderFilter { get; set; } = "";
+            public string RecipientFilter { get; set; } = "";
 
-            public string RecipientFilter
-            {
-                get;
-                set;
-            } =
-                "";
+            public bool SearchSubject { get; set; }
+            public bool SearchBody { get; set; }
+            public bool SearchAttachments { get; set; }
 
-            public bool SearchSubject
-            {
-                get;
-                set;
-            }
-
-            public bool SearchBody
-            {
-                get;
-                set;
-            }
-
-            public bool SearchAttachments
-            {
-                get;
-                set;
-            }
-
-            public string Sort
-            {
-                get;
-                set;
-            } =
+            public string Sort { get; set; } =
                 "Neueste zuerst";
         }
 
         private class SearchResponse
         {
-            public List<SearchResult> Results
-            {
-                get;
-                set;
-            } =
+            public List<SearchResult> Results { get; set; } =
                 new List<SearchResult>();
 
-            public int TotalMatches
-            {
-                get;
-                set;
-            }
+            public int TotalMatches { get; set; }
 
-            public bool WasLimited
-            {
-                get;
-                set;
-            }
+            public bool WasLimited { get; set; }
         }
 
         public class SearchResult
         {
-            public DateTime SortDate
-            {
-                get;
-                set;
-            }
+            public DateTime SortDate { get; set; }
 
-            public string Date
-            {
-                get;
-                set;
-            } = "";
+            public string Date { get; set; } = "";
+            public string Mailbox { get; set; } = "";
+            public string Recipient { get; set; } = "";
+            public string Cc { get; set; } = "";
+            public string Sender { get; set; } = "";
+            public string Flag { get; set; } = "";
+            public string Attachment { get; set; } = "";
+            public string AttachmentNames { get; set; } = "";
+            public string FoundIn { get; set; } = "";
+            public string Subject { get; set; } = "";
+            public string Folder { get; set; } = "";
+            public string Categories { get; set; } = "";
+            public string ConversationId { get; set; } = "";
+            public string EntryId { get; set; } = "";
+            public string Body { get; set; } = "";
 
-            public string Mailbox
-            {
-                get;
-                set;
-            } = "";
+            public int RelationScore { get; set; }
 
-            public string Recipient
-            {
-                get;
-                set;
-            } = "";
-
-            public string Cc
-            {
-                get;
-                set;
-            } = "";
-
-            public string Sender
-            {
-                get;
-                set;
-            } = "";
-
-            public string Flag
-            {
-                get;
-                set;
-            } = "";
-
-            public string Attachment
-            {
-                get;
-                set;
-            } = "";
-
-            public string AttachmentNames
-            {
-                get;
-                set;
-            } = "";
-
-            public string FoundIn
-            {
-                get;
-                set;
-            } = "";
-
-            public string Subject
-            {
-                get;
-                set;
-            } = "";
-
-            public string Folder
-            {
-                get;
-                set;
-            } = "";
-
-            public string Categories
-            {
-                get;
-                set;
-            } = "";
-
-            public string ConversationId
-            {
-                get;
-                set;
-            } = "";
-
-            public string EntryId
-            {
-                get;
-                set;
-            } = "";
-
-            public string Body
-            {
-                get;
-                set;
-            } = "";
+            public string RelationReason { get; set; } = "";
         }
     }
 }
